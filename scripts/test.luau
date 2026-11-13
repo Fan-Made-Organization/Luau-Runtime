@@ -1,26 +1,31 @@
 local Game = require("../simulator/game")
 
 game = Game
-workspace = game:GetService("Workspace")
-Instance = game.Instance
 
-print("FMO Luau Runtime")
-print("Execution Engine: Operational")
+print("FMO DataModel Test")
+print("========================")
 
-local version = "Update 1.0"
+print("Game name:", game.DataModel.Name)
+print("Game class:", game.DataModel.ClassName)
 
-print("Version: " .. version)
+print("\n--- Services ---")
 
-print("\n--- Simulator Test ---")
+for _, name in ipairs(game:GetServiceNames()) do
+    print("Service:", name)
+end
+
+print("\nTotal services:", game:GetServiceCount())
+
+print("\n--- Workspace ---")
+
+local workspace = game:GetService("Workspace")
 
 local part = Instance.new("Part")
-
-part.Name = "MiPart"
+part.Name = "TestPart"
 part.Parent = workspace
 
-print("Part created: " .. part.Name)
-print("Class: " .. part.ClassName)
-print("Full Name: " .. part:GetFullName())
-print("Children: " .. #workspace:GetChildren())
+print("Part:", part.Name)
+print("Full name:", part:GetFullName())
+print("Is descendant:", part:IsDescendantOf(game.DataModel))
 
-print("\nSimulator test completed.")
+print("\nDataModel test completed.")
