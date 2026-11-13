@@ -4,6 +4,7 @@ local RunService = require("./run_service")
 local CollectionService = require("./collection_service")
 local DebrisService = require("./debris_service")
 local HttpService = require("./http_service")
+local TweenService = require("./tween_service")
 
 local BuiltinServices = {}
 
@@ -16,7 +17,6 @@ local serviceNames = {
     "SoundService",
     "Teams",
     "UserInputService",
-    "TweenService",
 }
 
 for _, name in ipairs(serviceNames) do
@@ -33,5 +33,6 @@ BuiltinServices.RunService = RunService
 BuiltinServices.CollectionService = CollectionService
 BuiltinServices.Debris = DebrisService
 BuiltinServices.HttpService = HttpService
+BuiltinServices.TweenService = TweenService
 
 return BuiltinServices
