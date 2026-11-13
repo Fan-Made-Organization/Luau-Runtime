@@ -6,6 +6,7 @@ local DebrisService = require("./debris_service")
 local HttpService = require("./http_service")
 local TweenService = require("./tween_service")
 local ScriptService = require("./script_service")
+local ScriptLifecycle = require("./script_lifecycle")
 
 local BuiltinServices = {}
 
@@ -22,10 +23,8 @@ local serviceNames = {
 
 for _, name in ipairs(serviceNames) do
     local service = Instance.new("Folder")
-
     service.Name = name
     service.ClassName = name
-
     BuiltinServices[name] = service
 end
 
@@ -36,5 +35,6 @@ BuiltinServices.Debris = DebrisService
 BuiltinServices.HttpService = HttpService
 BuiltinServices.TweenService = TweenService
 BuiltinServices.ScriptService = ScriptService
+BuiltinServices.ScriptLifecycle = ScriptLifecycle
 
 return BuiltinServices
