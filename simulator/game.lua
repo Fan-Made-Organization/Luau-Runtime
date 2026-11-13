@@ -1,6 +1,6 @@
-local Services = require("simulator.services")
-local Workspace = require("simulator.workspace")
-local InstanceModule = require("simulator.instance")
+local Services = require("./services")
+local Workspace = require("./workspace")
+local InstanceModule = require("./instance")
 
 local Game = {}
 
