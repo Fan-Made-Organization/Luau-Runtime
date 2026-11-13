@@ -28,6 +28,7 @@ Game.Instance = InstanceModule
 Game.Scheduler = Scheduler
 Game.DataModel = DataModel
 Game.Task = Task
+Game.ScriptService = BuiltinServices.ScriptService
 
 function Game:GetService(name)
     return Services.GetService(name)
