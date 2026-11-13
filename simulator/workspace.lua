@@ -1,4 +1,4 @@
-local Instance = require("simulator.instance")
+local Instance = require("./instance")
 
 local Workspace = Instance.new("Workspace")
 
