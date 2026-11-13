@@ -3,6 +3,7 @@ local Players = require("./players")
 local RunService = require("./run_service")
 local CollectionService = require("./collection_service")
 local DebrisService = require("./debris_service")
+local HttpService = require("./http_service")
 
 local BuiltinServices = {}
 
@@ -15,7 +16,6 @@ local serviceNames = {
     "SoundService",
     "Teams",
     "UserInputService",
-    "HttpService",
     "TweenService",
 }
 
@@ -32,5 +32,6 @@ BuiltinServices.Players = Players
 BuiltinServices.RunService = RunService
 BuiltinServices.CollectionService = CollectionService
 BuiltinServices.Debris = DebrisService
+BuiltinServices.HttpService = HttpService
 
 return BuiltinServices
