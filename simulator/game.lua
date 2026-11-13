@@ -29,6 +29,7 @@ Game.DataModel = DataModel
 Game.Task = Task
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
+Game.BindableEvent = BuiltinServices.BindableEvent
 
 function Game:GetService(name)
     return Services.GetService(name)
