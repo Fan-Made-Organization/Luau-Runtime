@@ -1,6 +1,7 @@
 local Instance = require("./instance")
 local Players = require("./players")
 local RunService = require("./run_service")
+local CollectionService = require("./collection_service")
 
 local BuiltinServices = {}
 
@@ -28,5 +29,6 @@ end
 
 BuiltinServices.Players = Players
 BuiltinServices.RunService = RunService
+BuiltinServices.CollectionService = CollectionService
 
 return BuiltinServices
