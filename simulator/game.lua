@@ -4,32 +4,30 @@ local InstanceModule = require("./instance")
 local BuiltinServices = require("./builtin_services")
 local Scheduler = require("./scheduler")
 local DataModel = require("./datamodel")
+local Task = require("./task")
 
 local Game = {}
 
--- Registrar Workspace
 Services.Register("Workspace", Workspace)
 
--- Colocar Workspace dentro del DataModel
 Workspace.Parent = DataModel
 
--- Registrar los servicios integrados
 for name, service in pairs(BuiltinServices) do
     Services.Register(name, service)
     Scheduler:Register(name, service)
 
-    -- Los servicios que son Instances forman parte de la jerarquía.
     if type(service) == "table" and service._isInstance then
         service.Parent = DataModel
     end
 end
 
--- Registrar Workspace en el Scheduler
 Scheduler:Register("Workspace", Workspace)
+Scheduler:Register("Task", Task)
 
 Game.Instance = InstanceModule
 Game.Scheduler = Scheduler
 Game.DataModel = DataModel
+Game.Task = Task
 
 function Game:GetService(name)
     return Services.GetService(name)
