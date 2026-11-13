@@ -13,6 +13,8 @@ local classDefaults = {
         Anchored = false,
         CanCollide = true,
         Transparency = 0,
+        Position = {0, 0, 0},
+        Size = {4, 1, 2},
     },
 
     Model = {
@@ -26,20 +28,23 @@ local classDefaults = {
     Script = {
         Name = "Script",
         Disabled = false,
+        Source = "",
     },
 
     LocalScript = {
         Name = "LocalScript",
         Disabled = false,
+        Source = "",
     },
 
     ModuleScript = {
         Name = "ModuleScript",
+        Source = "",
     },
 }
 
 local function removeChild(parent, child)
-    if not parent or not parent._children then
+    if not parent then
         return
     end
 
@@ -88,8 +93,12 @@ InstanceMetatable.__newindex = function(self, key, value)
     end
 
     if value ~= nil then
-        if type(value) ~= "table" or not value._children then
+        if type(value) ~= "table" or not value._isInstance then
             error("Parent must be an Instance or nil")
+        end
+
+        if value._destroyed then
+            error("Cannot parent to a destroyed Instance")
         end
 
         if isAncestor(value, self) then
@@ -126,13 +135,27 @@ function Instance.new(className)
     local object = {}
 
     for key, value in pairs(defaults) do
-        object[key] = value
+        if type(value) == "table" then
+            local copy = {}
+
+            for k, v in pairs(value) do
+                copy[k] = v
+            end
+
+            object[key] = copy
+        else
+            object[key] = value
+        end
     end
 
     object.ClassName = className
+    object.Archivable = true
+
     object._parent = nil
     object._children = {}
+    object._attributes = {}
     object._destroyed = false
+    object._isInstance = true
 
     return setmetatable(object, InstanceMetatable)
 end
@@ -142,11 +165,34 @@ function InstanceMethods:IsA(className)
         return true
     end
 
-    if self.ClassName == "Workspace" and className == "Model" then
-        return true
-    end
+    local inheritance = {
+        Workspace = {
+            Model = true,
+            WorldRoot = true,
+        },
 
-    return false
+        Part = {
+            BasePart = true,
+        },
+
+        Script = {
+            BaseScript = true,
+            LuaSourceContainer = true,
+        },
+
+        LocalScript = {
+            BaseScript = true,
+            LuaSourceContainer = true,
+        },
+
+        ModuleScript = {
+            LuaSourceContainer = true,
+        },
+    }
+
+    return inheritance[self.ClassName]
+        and inheritance[self.ClassName][className] == true
+        or false
 end
 
 function InstanceMethods:GetChildren()
@@ -159,14 +205,101 @@ function InstanceMethods:GetChildren()
     return children
 end
 
-function InstanceMethods:FindFirstChild(name)
+function InstanceMethods:GetDescendants()
+    local descendants = {}
+
+    local function collect(parent)
+        for _, child in ipairs(parent._children) do
+            table.insert(descendants, child)
+            collect(child)
+        end
+    end
+
+    collect(self)
+
+    return descendants
+end
+
+function InstanceMethods:FindFirstChild(name, recursive)
     for _, child in ipairs(self._children) do
         if child.Name == name then
             return child
         end
     end
 
+    if recursive then
+        for _, child in ipairs(self._children) do
+            local found = child:FindFirstChild(name, true)
+
+            if found then
+                return found
+            end
+        end
+    end
+
     return nil
+end
+
+function InstanceMethods:FindFirstChildOfClass(className)
+    for _, child in ipairs(self._children) do
+        if child.ClassName == className then
+            return child
+        end
+    end
+
+    return nil
+end
+
+function InstanceMethods:FindFirstChildWhichIsA(className, recursive)
+    for _, child in ipairs(self._children) do
+        if child:IsA(className) then
+            return child
+        end
+    end
+
+    if recursive then
+        for _, child in ipairs(self._children) do
+            local found = child:FindFirstChildWhichIsA(className, true)
+
+            if found then
+                return found
+            end
+        end
+    end
+
+    return nil
+end
+
+function InstanceMethods:FindFirstAncestor(name)
+    local current = self.Parent
+
+    while current do
+        if current.Name == name then
+            return current
+        end
+
+        current = current.Parent
+    end
+
+    return nil
+end
+
+function InstanceMethods:IsDescendantOf(ancestor)
+    local current = self.Parent
+
+    while current do
+        if current == ancestor then
+            return true
+        end
+
+        current = current.Parent
+    end
+
+    return false
+end
+
+function InstanceMethods:IsAncestorOf(descendant)
+    return descendant:IsDescendantOf(self)
 end
 
 function InstanceMethods:GetFullName()
@@ -177,16 +310,85 @@ function InstanceMethods:GetFullName()
     return self.Parent:GetFullName() .. "." .. self.Name
 end
 
-function InstanceMethods:Destroy()
-    if self._destroyed then
-        return
+function InstanceMethods:SetAttribute(name, value)
+    if type(name) ~= "string" then
+        error("Attribute name must be a string")
     end
 
+    self._attributes[name] = value
+end
+
+function InstanceMethods:GetAttribute(name)
+    return self._attributes[name]
+end
+
+function InstanceMethods:GetAttributes()
+    local attributes = {}
+
+    for name, value in pairs(self._attributes) do
+        attributes[name] = value
+    end
+
+    return attributes
+end
+
+function InstanceMethods:ClearAllChildren()
     local children = self:GetChildren()
 
     for _, child in ipairs(children) do
         child:Destroy()
     end
+end
+
+function InstanceMethods:Clone()
+    if not self.Archivable then
+        return nil
+    end
+
+    local clone = Instance.new(self.ClassName)
+
+    for key, value in pairs(self) do
+        if key ~= "_parent"
+        and key ~= "_children"
+        and key ~= "_attributes"
+        and key ~= "_destroyed"
+        and key ~= "_isInstance" then
+
+            if type(value) == "table" then
+                local copy = {}
+
+                for k, v in pairs(value) do
+                    copy[k] = v
+                end
+
+                clone[key] = copy
+            else
+                clone[key] = value
+            end
+        end
+    end
+
+    for name, value in pairs(self._attributes) do
+        clone:SetAttribute(name, value)
+    end
+
+    for _, child in ipairs(self._children) do
+        local childClone = child:Clone()
+
+        if childClone then
+            childClone.Parent = clone
+        end
+    end
+
+    return clone
+end
+
+function InstanceMethods:Destroy()
+    if self._destroyed then
+        return
+    end
+
+    self:ClearAllChildren()
 
     self.Parent = nil
     self._destroyed = true
