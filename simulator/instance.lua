@@ -4,6 +4,10 @@ local InstanceMethods = {}
 local InstanceMetatable = {}
 
 local classDefaults = {
+    Workspace = {
+        Name = "Workspace",
+    },
+
     Part = {
         Name = "Part",
         Anchored = false,
@@ -134,7 +138,15 @@ function Instance.new(className)
 end
 
 function InstanceMethods:IsA(className)
-    return self.ClassName == className or className == "Instance"
+    if self.ClassName == className or className == "Instance" then
+        return true
+    end
+
+    if self.ClassName == "Workspace" and className == "Model" then
+        return true
+    end
+
+    return false
 end
 
 function InstanceMethods:GetChildren()
@@ -172,4 +184,12 @@ function InstanceMethods:Destroy()
 
     local children = self:GetChildren()
 
-    for _, child
+    for _, child in ipairs(children) do
+        child:Destroy()
+    end
+
+    self.Parent = nil
+    self._destroyed = true
+end
+
+return Instance
