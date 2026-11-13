@@ -1,5 +1,6 @@
 local Instance = require("./instance")
 local Players = require("./players")
+local RunService = require("./run_service")
 
 local BuiltinServices = {}
 
@@ -11,7 +12,6 @@ local serviceNames = {
     "StarterPlayer",
     "SoundService",
     "Teams",
-    "RunService",
     "UserInputService",
     "HttpService",
     "TweenService",
@@ -27,5 +27,6 @@ for _, name in ipairs(serviceNames) do
 end
 
 BuiltinServices.Players = Players
+BuiltinServices.RunService = RunService
 
 return BuiltinServices
