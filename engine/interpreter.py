@@ -10,11 +10,20 @@ class LuauInterpreter:
 
     def execute(self, script_path):
 
+        script_path = script_path.resolve()
+
         if not self.executable.is_file():
             return {
                 "success": False,
                 "output": "",
-                "error": "Luau executable not found."
+                "error": "Luau engine not found."
+            }
+
+        if not script_path.is_file():
+            return {
+                "success": False,
+                "output": "",
+                "error": "Script file not found."
             }
 
         try:
@@ -38,7 +47,7 @@ class LuauInterpreter:
                 "error": "Execution timeout."
             }
 
-        except Exception as error:
+        except OSError as error:
             return {
                 "success": False,
                 "output": "",

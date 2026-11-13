@@ -1,15 +1,32 @@
+from pathlib import Path
 
 from engine.interpreter import LuauInterpreter
+from config import SCRIPTS_DIR
 
-interpreter = LuauInterpreter()
 
-result = interpreter.execute("scripts/test.luau")
+def main():
+    print("=" * 40)
+    print("       FMO LUAU RUNTIME")
+    print("          UPDATE 1.0")
+    print("=" * 40)
 
-print("========== FMO RUNTIME ==========")
+    interpreter = LuauInterpreter()
 
-if result["success"]:
-    print(result["output"])
-    print("Execution completed successfully!")
-else:
-    print("Execution failed!")
-    print(result["error"])
+    script = SCRIPTS_DIR / "test.luau"
+
+    print("\n[Runtime] Initializing...")
+    print("[Runtime] Loading Luau engine...")
+
+    result = interpreter.execute(script)
+
+    if result["success"]:
+        print("\n[Runtime] Script output:")
+        print(result["output"])
+        print("[Runtime] Execution completed.")
+    else:
+        print("\n[Runtime] Execution failed:")
+        print(result["error"])
+
+
+if __name__ == "__main__":
+    main()
