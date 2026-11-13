@@ -1,3 +1,5 @@
+local Signal = require("./signal")
+
 local Instance = {}
 
 local InstanceMethods = {}
@@ -70,54 +72,75 @@ local function isAncestor(object, possibleAncestor)
     return false
 end
 
+local function notifyChanged(self, property)
+    self.Changed:Fire(property)
+
+    local signal = self._propertySignals[property]
+
+    if signal then
+        signal:Fire()
+    end
+end
+
 InstanceMetatable.__index = function(self, key)
     if key == "Parent" then
         return rawget(self, "_parent")
     end
 
-    return InstanceMethods[key] or rawget(self, key)
+    local method = InstanceMethods[key]
+
+    if method then
+        return method
+    end
+
+    return self._properties[key]
 end
 
 InstanceMetatable.__newindex = function(self, key, value)
-    if key ~= "Parent" then
-        rawset(self, key, value)
+    if key == "Parent" then
+        if self._destroyed then
+            error("Cannot modify a destroyed Instance")
+        end
+
+        if value == self then
+            error("An Instance cannot be its own parent")
+        end
+
+        if value ~= nil then
+            if type(value) ~= "table" or not value._isInstance then
+                error("Parent must be an Instance or nil")
+            end
+
+            if value._destroyed then
+                error("Cannot parent to a destroyed Instance")
+            end
+
+            if isAncestor(value, self) then
+                error("Cannot create a circular hierarchy")
+            end
+        end
+
+        local oldParent = self._parent
+
+        if oldParent == value then
+            return
+        end
+
+        removeChild(oldParent, self)
+
+        rawset(self, "_parent", value)
+
+        if value then
+            table.insert(value._children, self)
+        end
+
+        notifyChanged(self, "Parent")
         return
     end
 
-    if self._destroyed then
-        error("Cannot modify a destroyed Instance")
-    end
-
-    if value == self then
-        error("An Instance cannot be its own parent")
-    end
-
-    if value ~= nil then
-        if type(value) ~= "table" or not value._isInstance then
-            error("Parent must be an Instance or nil")
-        end
-
-        if value._destroyed then
-            error("Cannot parent to a destroyed Instance")
-        end
-
-        if isAncestor(value, self) then
-            error("Cannot create a circular hierarchy")
-        end
-    end
-
-    local oldParent = self._parent
-
-    if oldParent == value then
-        return
-    end
-
-    removeChild(oldParent, self)
-
-    rawset(self, "_parent", value)
-
-    if value then
-        table.insert(value._children, self)
+    if self._properties[key] ~= value then
+        self._properties[key] = value
+        notifyChanged(self, key)
     end
 end
 
@@ -132,7 +155,7 @@ function Instance.new(className)
         error("Unknown class: " .. className)
     end
 
-    local object = {}
+    local properties = {}
 
     for key, value in pairs(defaults) do
         if type(value) == "table" then
@@ -142,20 +165,25 @@ function Instance.new(className)
                 copy[k] = v
             end
 
-            object[key] = copy
+            properties[key] = copy
         else
-            object[key] = value
+            properties[key] = value
         end
     end
 
-    object.ClassName = className
-    object.Archivable = true
+    properties.ClassName = className
+    properties.Archivable = true
 
-    object._parent = nil
-    object._children = {}
-    object._attributes = {}
-    object._destroyed = false
-    object._isInstance = true
+    local object = {
+        _properties = properties,
+        _parent = nil,
+        _children = {},
+        _attributes = {},
+        _propertySignals = {},
+        _destroyed = false,
+        _isInstance = true,
+        Changed = Signal.new(),
+    }
 
     return setmetatable(object, InstanceMetatable)
 end
@@ -310,6 +338,18 @@ function InstanceMethods:GetFullName()
     return self.Parent:GetFullName() .. "." .. self.Name
 end
 
+function InstanceMethods:GetPropertyChangedSignal(property)
+    if type(property) ~= "string" then
+        error("Property name must be a string")
+    end
+
+    if not self._propertySignals[property] then
+        self._propertySignals[property] = Signal.new()
+    end
+
+    return self._propertySignals[property]
+end
+
 function InstanceMethods:SetAttribute(name, value)
     if type(name) ~= "string" then
         error("Attribute name must be a string")
@@ -347,24 +387,17 @@ function InstanceMethods:Clone()
 
     local clone = Instance.new(self.ClassName)
 
-    for key, value in pairs(self) do
-        if key ~= "_parent"
-        and key ~= "_children"
-        and key ~= "_attributes"
-        and key ~= "_destroyed"
-        and key ~= "_isInstance" then
+    for key, value in pairs(self._properties) do
+        if type(value) == "table" then
+            local copy = {}
 
-            if type(value) == "table" then
-                local copy = {}
-
-                for k, v in pairs(value) do
-                    copy[k] = v
-                end
-
-                clone[key] = copy
-            else
-                clone[key] = value
+            for k, v in pairs(value) do
+                copy[k] = v
             end
+
+            clone[key] = copy
+        else
+            clone[key] = value
         end
     end
 
@@ -389,8 +422,14 @@ function InstanceMethods:Destroy()
     end
 
     self:ClearAllChildren()
-
     self.Parent = nil
+
+    self.Changed:Destroy()
+
+    for _, signal in pairs(self._propertySignals) do
+        signal:Destroy()
+    end
+
     self._destroyed = true
 end
 
