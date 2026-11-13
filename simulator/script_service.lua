@@ -1,8 +1,10 @@
+local ModuleLoader = require("./module_loader")
+
 local ScriptService = {
-    _moduleCache = {},
     _executionCount = 0,
     _errorCount = 0,
     _executionContext = "Server",
+    _moduleLoader = ModuleLoader,
 }
 
 local VALID_CONTEXTS = {
@@ -175,35 +177,15 @@ function ScriptService:Require(moduleScript)
         error("Require expects a ModuleScript")
     end
 
-    prepareScript(moduleScript)
-
-    if moduleScript.Disabled then
-        error("Cannot require a disabled ModuleScript")
-    end
-
-    if self._moduleCache[moduleScript] ~= nil then
-        return self._moduleCache[moduleScript]
-    end
-
-    local chunk, compileError = compile(moduleScript)
-
-    if not chunk then
-        self._errorCount = self._errorCount + 1
-        error(compileError)
-    end
-
-    local success, result = pcall(chunk)
+    local success, result = pcall(function()
+        return self._moduleLoader:Require(moduleScript)
+    end)
 
     if not success then
         self._errorCount = self._errorCount + 1
         error(result)
     end
 
-    if result == nil then
-        error("ModuleScript must return a value")
-    end
-
-    self._moduleCache[moduleScript] = result
     self._executionCount = self._executionCount + 1
 
     return result
@@ -211,20 +193,24 @@ end
 
 function ScriptService:ClearCache(moduleScript)
     if moduleScript then
-        self._moduleCache[moduleScript] = nil
-    else
-        self._moduleCache = {}
+        return self._moduleLoader:Unload(moduleScript)
     end
+
+    self._moduleLoader:ClearCache()
+
+    return true
 end
 
 function ScriptService:GetCachedModuleCount()
-    local count = 0
+    return self._moduleLoader:GetLoadedCount()
+end
 
-    for _ in pairs(self._moduleCache) do
-        count = count + 1
-    end
+function ScriptService:GetLoadedModules()
+    return self._moduleLoader:GetLoadedModules()
+end
 
-    return count
+function ScriptService:GetModuleStatistics()
+    return self._moduleLoader:GetStatistics()
 end
 
 function ScriptService:GetExecutionCount()
@@ -238,6 +224,7 @@ end
 function ScriptService:ResetStats()
     self._executionCount = 0
     self._errorCount = 0
+    self._moduleLoader:ResetStatistics()
 end
 
 return ScriptService
