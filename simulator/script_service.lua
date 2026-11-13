@@ -2,6 +2,20 @@ local ScriptService = {
     _moduleCache = {},
     _executionCount = 0,
     _errorCount = 0,
+    _executionContext = "Server",
+}
+
+local VALID_CONTEXTS = {
+    Server = true,
+    Client = true,
+    Plugin = true,
+}
+
+local VALID_RUN_CONTEXTS = {
+    Legacy = true,
+    Server = true,
+    Client = true,
+    Plugin = true,
 }
 
 local function isScript(instance)
@@ -26,11 +40,7 @@ local function prepareScript(instance)
     end
 
     if instance.RunContext == nil then
-        if instance.ClassName == "LocalScript" then
-            instance.RunContext = "Client"
-        else
-            instance.RunContext = "Legacy"
-        end
+        instance.RunContext = "Legacy"
     end
 end
 
@@ -39,15 +49,16 @@ local function compile(instance)
         return nil, "loadstring is not available"
     end
 
-    local source = instance.Source
-
-    if type(source) ~= "string" then
+    if type(instance.Source) ~= "string" then
         return nil, "Script Source must be a string"
     end
 
     local chunkName = "=" .. instance:GetFullName()
 
-    local chunk, compileError = loadstring(source, chunkName)
+    local chunk, compileError = loadstring(
+        instance.Source,
+        chunkName
+    )
 
     if not chunk then
         return nil, compileError
@@ -56,19 +67,87 @@ local function compile(instance)
     return chunk
 end
 
-function ScriptService:Execute(instance)
-    if not isScript(instance) then
-        error("Execute expects a Script, LocalScript or ModuleScript")
+function ScriptService:SetExecutionContext(context)
+    if not VALID_CONTEXTS[context] then
+        error("Invalid execution context: " .. tostring(context))
     end
 
-    if instance.ClassName == "ModuleScript" then
-        error("Use ScriptService:Require() for ModuleScripts")
+    self._executionContext = context
+
+    return true
+end
+
+function ScriptService:GetExecutionContext()
+    return self._executionContext
+end
+
+function ScriptService:GetRequiredContext(instance)
+    if not isScript(instance) then
+        error("Expected a Script instance")
     end
 
     prepareScript(instance)
 
+    if instance.ClassName == "ModuleScript" then
+        return "Any"
+    end
+
+    local runContext = instance.RunContext
+
+    if not VALID_RUN_CONTEXTS[runContext] then
+        error("Invalid RunContext: " .. tostring(runContext))
+    end
+
+    if runContext == "Legacy" then
+        if instance.ClassName == "LocalScript" then
+            return "Client"
+        end
+
+        return "Server"
+    end
+
+    return runContext
+end
+
+function ScriptService:CanExecute(instance, context)
+    if not isScript(instance) then
+        return false, "Invalid script instance"
+    end
+
+    prepareScript(instance)
+
+    if instance.ClassName == "ModuleScript" then
+        return false, "ModuleScripts must be loaded using Require"
+    end
+
     if instance.Disabled then
         return false, "Script is disabled"
+    end
+
+    context = context or self._executionContext
+
+    if not VALID_CONTEXTS[context] then
+        return false, "Invalid execution context"
+    end
+
+    local requiredContext = self:GetRequiredContext(instance)
+
+    if requiredContext ~= context then
+        return false,
+            "Context mismatch: requires "
+            .. requiredContext
+            .. ", current context is "
+            .. context
+    end
+
+    return true
+end
+
+function ScriptService:Execute(instance, context)
+    local allowed, reason = self:CanExecute(instance, context)
+
+    if not allowed then
+        return false, reason
     end
 
     local chunk, compileError = compile(instance)
