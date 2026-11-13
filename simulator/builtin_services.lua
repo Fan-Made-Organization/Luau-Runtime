@@ -5,6 +5,7 @@ local CollectionService = require("./collection_service")
 local DebrisService = require("./debris_service")
 local HttpService = require("./http_service")
 local TweenService = require("./tween_service")
+local ScriptService = require("./script_service")
 
 local BuiltinServices = {}
 
@@ -34,5 +35,6 @@ BuiltinServices.CollectionService = CollectionService
 BuiltinServices.Debris = DebrisService
 BuiltinServices.HttpService = HttpService
 BuiltinServices.TweenService = TweenService
+BuiltinServices.ScriptService = ScriptService
 
 return BuiltinServices
