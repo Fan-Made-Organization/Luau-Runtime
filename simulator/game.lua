@@ -9,7 +9,6 @@ local Task = require("./task")
 local Game = {}
 
 Services.Register("Workspace", Workspace)
-
 Workspace.Parent = DataModel
 
 for name, service in pairs(BuiltinServices) do
@@ -29,6 +28,7 @@ Game.Scheduler = Scheduler
 Game.DataModel = DataModel
 Game.Task = Task
 Game.ScriptService = BuiltinServices.ScriptService
+Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
 
 function Game:GetService(name)
     return Services.GetService(name)
