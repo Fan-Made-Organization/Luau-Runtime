@@ -180,6 +180,7 @@ function Instance.new(className)
         _children = {},
         _attributes = {},
         _propertySignals = {},
+        _attributeSignals = {},
         _destroyed = false,
         _isInstance = true,
         Changed = Signal.new(),
@@ -355,7 +356,17 @@ function InstanceMethods:SetAttribute(name, value)
         error("Attribute name must be a string")
     end
 
+    if self._attributes[name] == value then
+        return
+    end
+
     self._attributes[name] = value
+
+    local signal = self._attributeSignals[name]
+
+    if signal then
+        signal:Fire()
+    end
 end
 
 function InstanceMethods:GetAttribute(name)
@@ -370,6 +381,46 @@ function InstanceMethods:GetAttributes()
     end
 
     return attributes
+end
+
+function InstanceMethods:RemoveAttribute(name)
+    if type(name) ~= "string" then
+        error("Attribute name must be a string")
+    end
+
+    if self._attributes[name] == nil then
+        return
+    end
+
+    self._attributes[name] = nil
+
+    local signal = self._attributeSignals[name]
+
+    if signal then
+        signal:Fire()
+    end
+end
+
+function InstanceMethods:GetAttributeChangedSignal(name)
+    if type(name) ~= "string" then
+        error("Attribute name must be a string")
+    end
+
+    if not self._attributeSignals[name] then
+        self._attributeSignals[name] = Signal.new()
+    end
+
+    return self._attributeSignals[name]
+end
+
+function InstanceMethods:GetAttributesCount()
+    local count = 0
+
+    for _ in pairs(self._attributes) do
+        count = count + 1
+    end
+
+    return count
 end
 
 function InstanceMethods:ClearAllChildren()
@@ -427,6 +478,10 @@ function InstanceMethods:Destroy()
     self.Changed:Destroy()
 
     for _, signal in pairs(self._propertySignals) do
+        signal:Destroy()
+    end
+
+    for _, signal in pairs(self._attributeSignals) do
         signal:Destroy()
     end
 
