@@ -1,8 +1,7 @@
-
 local Instance = {}
 
 local InstanceMethods = {}
-InstanceMethods.__index = InstanceMethods
+local InstanceMetatable = {}
 
 local classDefaults = {
     Part = {
@@ -35,6 +34,80 @@ local classDefaults = {
     },
 }
 
+local function removeChild(parent, child)
+    if not parent or not parent._children then
+        return
+    end
+
+    for i, existing in ipairs(parent._children) do
+        if existing == child then
+            table.remove(parent._children, i)
+            break
+        end
+    end
+end
+
+local function isAncestor(object, possibleAncestor)
+    local current = object
+
+    while current do
+        if current == possibleAncestor then
+            return true
+        end
+
+        current = current.Parent
+    end
+
+    return false
+end
+
+InstanceMetatable.__index = function(self, key)
+    if key == "Parent" then
+        return rawget(self, "_parent")
+    end
+
+    return InstanceMethods[key] or rawget(self, key)
+end
+
+InstanceMetatable.__newindex = function(self, key, value)
+    if key ~= "Parent" then
+        rawset(self, key, value)
+        return
+    end
+
+    if self._destroyed then
+        error("Cannot modify a destroyed Instance")
+    end
+
+    if value == self then
+        error("An Instance cannot be its own parent")
+    end
+
+    if value ~= nil then
+        if type(value) ~= "table" or not value._children then
+            error("Parent must be an Instance or nil")
+        end
+
+        if isAncestor(value, self) then
+            error("Cannot create a circular hierarchy")
+        end
+    end
+
+    local oldParent = self._parent
+
+    if oldParent == value then
+        return
+    end
+
+    removeChild(oldParent, self)
+
+    rawset(self, "_parent", value)
+
+    if value then
+        table.insert(value._children, self)
+    end
+end
+
 function Instance.new(className)
     if type(className) ~= "string" then
         error("Instance.new expects a class name")
@@ -53,11 +126,11 @@ function Instance.new(className)
     end
 
     object.ClassName = className
-    object.Parent = nil
+    object._parent = nil
     object._children = {}
     object._destroyed = false
 
-    return setmetatable(object, InstanceMethods)
+    return setmetatable(object, InstanceMetatable)
 end
 
 function InstanceMethods:IsA(className)
@@ -65,7 +138,13 @@ function InstanceMethods:IsA(className)
 end
 
 function InstanceMethods:GetChildren()
-    return self._children
+    local children = {}
+
+    for i, child in ipairs(self._children) do
+        children[i] = child
+    end
+
+    return children
 end
 
 function InstanceMethods:FindFirstChild(name)
@@ -78,17 +157,6 @@ function InstanceMethods:FindFirstChild(name)
     return nil
 end
 
-function InstanceMethods:AddChild(child)
-    if child.Parent then
-        error("Instance already has a parent")
-    end
-
-    child.Parent = self
-    table.insert(self._children, child)
-
-    return child
-end
-
 function InstanceMethods:GetFullName()
     if not self.Parent then
         return self.Name
@@ -98,13 +166,10 @@ function InstanceMethods:GetFullName()
 end
 
 function InstanceMethods:Destroy()
-    for _, child in ipairs(self._children) do
-        child:Destroy()
+    if self._destroyed then
+        return
     end
 
-    self._children = {}
-    self._destroyed = true
-    self.Parent = nil
-end
+    local children = self:GetChildren()
 
-return Instance
+    for _, child
