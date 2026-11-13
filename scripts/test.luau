@@ -1,7 +1,7 @@
 local Game = require("../simulator/game")
 
 game = Game
-local Instance = game.Instance
+local Instance = require("../simulator/instance")
 
 print("FMO DataModel Test")
 print("========================")
