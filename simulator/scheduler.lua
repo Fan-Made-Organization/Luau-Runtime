@@ -49,15 +49,20 @@ function Scheduler:Step(deltaTime)
     end
 
     if type(deltaTime) ~= "number" or deltaTime < 0 then
-        error("deltaTime must be a non-negative number")
+        error("deltaTime must be non-negative")
     end
 
     self._frame = self._frame + 1
     self._elapsed = self._elapsed + deltaTime
 
     local runService = self._services.RunService
-    local debris = self._services.Debris
+    local taskService = self._services.Task
     local tweenService = self._services.TweenService
+    local debris = self._services.Debris
+
+    if taskService then
+        taskService.Step(deltaTime)
+    end
 
     if runService then
         runService:Step(deltaTime)
