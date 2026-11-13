@@ -1,32 +1,42 @@
 local Game = require("../simulator/game")
 
 game = Game
-local Instance = require("../simulator/instance")
+task = Game.Task
 
-print("FMO DataModel Test")
+print("FMO TASK SCHEDULER TEST")
 print("========================")
 
-print("Game name:", game.DataModel.Name)
-print("Game class:", game.DataModel.ClassName)
+game:Start()
 
-print("\n--- Services ---")
+task.spawn(function()
+    print("[Spawn] Task started")
 
-for _, name in ipairs(game:GetServiceNames()) do
-    print("Service:", name)
+    task.wait(1)
+
+    print("[Spawn] One second passed")
+end)
+
+task.defer(function()
+    print("[Defer] Deferred task executed")
+end)
+
+task.delay(2, function()
+    print("[Delay] Two seconds passed")
+end)
+
+print("\n--- Scheduler ---")
+
+for i = 1, 3 do
+    game:Step(1)
+
+    print(
+        "Frame:",
+        game.Scheduler:GetFrame(),
+        "Clock:",
+        task.GetClock()
+    )
 end
 
-print("\nTotal services:", game:GetServiceCount())
+game:Stop()
 
-print("\n--- Workspace ---")
-
-local workspace = game:GetService("Workspace")
-
-local part = Instance.new("Part")
-part.Name = "TestPart"
-part.Parent = workspace
-
-print("Part:", part.Name)
-print("Full name:", part:GetFullName())
-print("Is descendant:", part:IsDescendantOf(game.DataModel))
-
-print("\nDataModel test completed.")
+print("\nTask Scheduler test completed.")
