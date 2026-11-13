@@ -1,9 +1,9 @@
 local Instance = require("./instance")
+local Players = require("./players")
 
 local BuiltinServices = {}
 
 local serviceNames = {
-    "Players",
     "Lighting",
     "ReplicatedStorage",
     "ServerStorage",
@@ -25,5 +25,7 @@ for _, name in ipairs(serviceNames) do
 
     BuiltinServices[name] = service
 end
+
+BuiltinServices.Players = Players
 
 return BuiltinServices
