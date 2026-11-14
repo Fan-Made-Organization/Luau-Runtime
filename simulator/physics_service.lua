@@ -18,6 +18,13 @@ local Physics = {
     },
 }
 
+local function isValidNumber(value)
+    return type(value) == "number"
+        and value == value
+        and value ~= math.huge
+        and value ~= -math.huge
+end
+
 local function vector(x, y, z)
     return {
         X = x or 0,
@@ -26,8 +33,26 @@ local function vector(x, y, z)
     }
 end
 
-local function copyVector(value)
+local function isValidVector(value)
     if type(value) ~= "table" then
+        return false
+    end
+
+    local x = value.X
+    local y = value.Y
+    local z = value.Z
+
+    if x == nil then x = value.x end
+    if y == nil then y = value.y end
+    if z == nil then z = value.z end
+
+    return isValidNumber(x or 0)
+        and isValidNumber(y or 0)
+        and isValidNumber(z or 0)
+end
+
+local function copyVector(value)
+    if not isValidVector(value) then
         return vector()
     end
 
@@ -54,16 +79,11 @@ local function multiply(value, scalar)
     )
 end
 
-local function isValidNumber(value)
-    return type(value) == "number"
-        and value == value
-        and value ~= math.huge
-        and value ~= -math.huge
-end
-
 local function isPart(object)
     return type(object) == "table"
         and object._isInstance == true
+        and not object._destroyed
+        and not object.Destroyed
         and (
             object.ClassName == "Part"
             or object.ClassName == "MeshPart"
@@ -71,9 +91,29 @@ local function isPart(object)
         )
 end
 
+local function isDestroyed(part)
+    if type(part) ~= "table" then
+        return true
+    end
+
+    if part._destroyed or part.Destroyed then
+        return true
+    end
+
+    if type(part.IsDestroyed) == "function" then
+        local success, result = pcall(part.IsDestroyed, part)
+
+        if success and result == true then
+            return true
+        end
+    end
+
+    return false
+end
+
 function Physics:RegisterPart(part)
     if not isPart(part) then
-        error("Physics:RegisterPart expects a Part", 2)
+        error("Physics:RegisterPart expects a valid Part", 2)
     end
 
     if self._parts[part] then
@@ -84,11 +124,21 @@ function Physics:RegisterPart(part)
     local velocity = copyVector(part.Velocity)
     local acceleration = copyVector(part.Acceleration)
 
+    local mass = part.Mass
+
+    if mass == nil then
+        mass = 1
+    end
+
+    if not isValidNumber(mass) or mass <= 0 then
+        error("Part Mass must be a positive finite number", 2)
+    end
+
     self._parts[part] = {
         Position = position,
         Velocity = velocity,
         Acceleration = acceleration,
-        Mass = part.Mass or 1,
+        Mass = mass,
     }
 
     part.Position = copyVector(position)
@@ -115,23 +165,24 @@ function Physics:IsRegistered(part)
     return self._parts[part] ~= nil
 end
 
--- Supports both:
--- SetGravity({X = 0, Y = -10, Z = 0})
--- SetGravity(0, -10, 0)
 function Physics:SetGravity(x, y, z)
     local newGravity
 
     if type(x) == "table" then
+        if not isValidVector(x) then
+            error("Gravity must contain valid numeric components", 2)
+        end
+
         newGravity = copyVector(x)
     else
-        newGravity = vector(x, y, z)
-    end
+        if not isValidNumber(x or 0)
+            or not isValidNumber(y or 0)
+            or not isValidNumber(z or 0)
+        then
+            error("Gravity components must be finite numbers", 2)
+        end
 
-    if not isValidNumber(newGravity.X)
-        or not isValidNumber(newGravity.Y)
-        or not isValidNumber(newGravity.Z)
-    then
-        error("Gravity must contain valid numeric X, Y and Z components", 2)
+        newGravity = vector(x, y, z)
     end
 
     self.Gravity = newGravity
@@ -144,12 +195,12 @@ function Physics:GetGravity()
 end
 
 function Physics:SetVelocity(part, velocity)
-    if not self:IsRegistered(part) then
-        self:RegisterPart(part)
+    if not isValidVector(velocity) then
+        error("Velocity must be a valid vector table", 2)
     end
 
-    if type(velocity) ~= "table" then
-        error("Velocity must be a vector table", 2)
+    if not self:IsRegistered(part) then
+        self:RegisterPart(part)
     end
 
     local newVelocity = copyVector(velocity)
@@ -171,12 +222,12 @@ function Physics:GetVelocity(part)
 end
 
 function Physics:SetAcceleration(part, acceleration)
-    if not self:IsRegistered(part) then
-        self:RegisterPart(part)
+    if not isValidVector(acceleration) then
+        error("Acceleration must be a valid vector table", 2)
     end
 
-    if type(acceleration) ~= "table" then
-        error("Acceleration must be a vector table", 2)
+    if not self:IsRegistered(part) then
+        self:RegisterPart(part)
     end
 
     local newAcceleration = copyVector(acceleration)
@@ -236,8 +287,15 @@ function Physics:Step(deltaTime)
 
     local updated = 0
 
+    -- Cache gravity once per simulation step.
+    local gravity = self.Gravity
+
+    local gravityX = gravity.X
+    local gravityY = gravity.Y
+    local gravityZ = gravity.Z
+
     for part, state in pairs(self._parts) do
-        if part.Destroyed or part._destroyed then
+        if isDestroyed(part) then
             self._parts[part] = nil
             self._statistics.RemovedParts += 1
 
@@ -248,26 +306,26 @@ function Physics:Step(deltaTime)
             part.Velocity = vector()
 
         else
-            local gravity = copyVector(self.Gravity)
-            local acceleration = copyVector(state.Acceleration)
+            local acceleration = state.Acceleration
 
-            local totalAcceleration = add(
-                gravity,
-                acceleration
-            )
+            local totalAccelerationX = gravityX + acceleration.X
+            local totalAccelerationY = gravityY + acceleration.Y
+            local totalAccelerationZ = gravityZ + acceleration.Z
 
-            state.Velocity = add(
-                state.Velocity,
-                multiply(totalAcceleration, deltaTime)
-            )
+            local velocity = state.Velocity
 
-            state.Position = add(
-                state.Position,
-                multiply(state.Velocity, deltaTime)
-            )
+            velocity.X += totalAccelerationX * deltaTime
+            velocity.Y += totalAccelerationY * deltaTime
+            velocity.Z += totalAccelerationZ * deltaTime
 
-            part.Position = copyVector(state.Position)
-            part.Velocity = copyVector(state.Velocity)
+            local position = state.Position
+
+            position.X += velocity.X * deltaTime
+            position.Y += velocity.Y * deltaTime
+            position.Z += velocity.Z * deltaTime
+
+            part.Position = copyVector(position)
+            part.Velocity = copyVector(velocity)
 
             updated += 1
         end
@@ -329,5 +387,7 @@ function Physics:Reset()
 
     return true
 end
+
+return Physics
 
 return Physics
