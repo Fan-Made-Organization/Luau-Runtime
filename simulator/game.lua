@@ -13,6 +13,7 @@ local CollisionService = require("./collision_service")
 local Diagnostics = require("./runtime_diagnostics")
 local RuntimeManager = require("./runtime_manager")
 local InstanceExtensions = require("./instance_extensions")
+local RuntimeEnvironment = require("./runtime_environment")
 
 local Game = {}
 
@@ -54,6 +55,9 @@ Game.CollisionService = CollisionService
 Game.Diagnostics = Diagnostics
 Game.RuntimeManager = RuntimeManager
 
+Game.RuntimeEnvironment = RuntimeEnvironment
+Game.Environment = RuntimeEnvironment.GetDefault()
+
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
 
@@ -85,6 +89,26 @@ end
 
 function Game:FindInstanceByPath(object, path)
     return InstanceExtensions.FindByPath(object, path)
+end
+
+function Game:CreateEnvironment(name, overrides)
+    return self.Environment:CreateEnvironment(name, overrides)
+end
+
+function Game:RegisterGlobal(name, value)
+    return self.Environment:SetGlobal(name, value)
+end
+
+function Game:GetGlobal(name)
+    return self.Environment:GetGlobal(name)
+end
+
+function Game:RemoveGlobal(name)
+    return self.Environment:RemoveGlobal(name)
+end
+
+function Game:GetGlobals(includeParent)
+    return self.Environment:GetGlobals(includeParent)
 end
 
 function Game:GetService(name)
