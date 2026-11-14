@@ -5,11 +5,13 @@ local BuiltinServices = require("./builtin_services")
 local Scheduler = require("./scheduler")
 local DataModel = require("./datamodel")
 local Task = require("./task")
+
 local ValueObjects = require("./value_objects")
 local ObjectRegistry = require("./object_registry")
 local Physics = require("./physics_service")
 local CollisionService = require("./collision_service")
 local Diagnostics = require("./runtime_diagnostics")
+local RuntimeManager = require("./runtime_manager")
 
 local Game = {}
 
@@ -28,6 +30,15 @@ end
 Scheduler:Register("Workspace", Workspace)
 Scheduler:Register("Task", Task)
 
+RuntimeManager:Configure({
+    Scheduler = Scheduler,
+    Physics = Physics,
+    CollisionService = CollisionService,
+    Diagnostics = Diagnostics,
+    Task = Task,
+    Workspace = Workspace,
+})
+
 Game.Instance = InstanceModule
 Game.Scheduler = Scheduler
 Game.DataModel = DataModel
@@ -38,6 +49,7 @@ Game.ObjectRegistry = ObjectRegistry
 Game.Physics = Physics
 Game.CollisionService = CollisionService
 Game.Diagnostics = Diagnostics
+Game.RuntimeManager = RuntimeManager
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -100,12 +112,28 @@ function Game:GetServiceNames()
     return DataModel:GetServiceNames()
 end
 
+function Game:Initialize()
+    return RuntimeManager:Initialize()
+end
+
 function Game:Start()
-    Scheduler:Start()
+    return RuntimeManager:Start()
 end
 
 function Game:Stop()
-    Scheduler:Stop()
+    return RuntimeManager:Stop()
+end
+
+function Game:Restart()
+    return RuntimeManager:Restart()
+end
+
+function Game:Shutdown()
+    return RuntimeManager:Shutdown()
+end
+
+function Game:GetRuntimeStatus()
+    return RuntimeManager:GetStatus()
 end
 
 function Game:Step(deltaTime)
