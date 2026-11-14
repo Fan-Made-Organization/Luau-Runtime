@@ -6,6 +6,7 @@ local Scheduler = require("./scheduler")
 local DataModel = require("./datamodel")
 local Task = require("./task")
 local ValueObjects = require("./value_objects")
+local ObjectRegistry = require("./object_registry")
 
 local Game = {}
 
@@ -30,6 +31,7 @@ Game.DataModel = DataModel
 Game.Task = Task
 
 Game.ValueObjects = ValueObjects
+Game.ObjectRegistry = ObjectRegistry
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -42,6 +44,18 @@ Game.RemoteFunction = BuiltinServices.RemoteFunction
 
 function Game:CreateValue(className, initialValue)
     return ValueObjects.new(className, initialValue)
+end
+
+function Game:RegisterObject(object)
+    return ObjectRegistry:Register(object)
+end
+
+function Game:GetObjectById(id)
+    return ObjectRegistry:GetById(id)
+end
+
+function Game:GetObjectId(object)
+    return ObjectRegistry:GetId(object)
 end
 
 function Game:GetService(name)
