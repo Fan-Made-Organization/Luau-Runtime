@@ -11,7 +11,9 @@ local ScriptLifecycle = require("./script_lifecycle")
 
 local BindableEvent = require("./bindable_event")
 local BindableFunction = require("./bindable_function")
+
 local RemoteEvent = require("./remote_event")
+local RemoteFunction = require("./remote_function")
 
 local BuiltinServices = {}
 
@@ -46,6 +48,10 @@ BuiltinServices.ScriptLifecycle = ScriptLifecycle
 
 BuiltinServices.BindableEvent = BindableEvent
 BuiltinServices.BindableFunction = BindableFunction
+
 BuiltinServices.RemoteEvent = RemoteEvent
+BuiltinServices.RemoteFunction = RemoteFunction
+
+return BuiltinServices
 
 return BuiltinServices
