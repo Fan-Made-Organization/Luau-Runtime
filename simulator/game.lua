@@ -14,6 +14,7 @@ local Diagnostics = require("./runtime_diagnostics")
 local RuntimeManager = require("./runtime_manager")
 local InstanceExtensions = require("./instance_extensions")
 local RuntimeEnvironment = require("./runtime_environment")
+local ErrorHandler = require("./error_handler")
 
 local Game = {}
 
@@ -57,6 +58,8 @@ Game.RuntimeManager = RuntimeManager
 
 Game.RuntimeEnvironment = RuntimeEnvironment
 Game.Environment = RuntimeEnvironment.GetDefault()
+
+Game.ErrorHandler = ErrorHandler
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -109,6 +112,22 @@ end
 
 function Game:GetGlobals(includeParent)
     return self.Environment:GetGlobals(includeParent)
+end
+
+function Game:ReportError(message, options)
+    return ErrorHandler:Report(message, options)
+end
+
+function Game:CaptureError(callback, ...)
+    return ErrorHandler:Capture(callback, ...)
+end
+
+function Game:GetErrors()
+    return ErrorHandler:GetErrors()
+end
+
+function Game:GetErrorStatistics()
+    return ErrorHandler:GetStatistics()
 end
 
 function Game:GetService(name)
