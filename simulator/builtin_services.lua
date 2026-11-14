@@ -30,6 +30,7 @@ local serviceNames = {
 
 for _, name in ipairs(serviceNames) do
     local service = Instance.new("Folder")
+
     service.Name = name
     service.ClassName = name
 
@@ -51,7 +52,5 @@ BuiltinServices.BindableFunction = BindableFunction
 
 BuiltinServices.RemoteEvent = RemoteEvent
 BuiltinServices.RemoteFunction = RemoteFunction
-
-return BuiltinServices
 
 return BuiltinServices
