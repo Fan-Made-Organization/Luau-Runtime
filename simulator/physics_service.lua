@@ -54,6 +54,13 @@ local function multiply(value, scalar)
     )
 end
 
+local function isValidNumber(value)
+    return type(value) == "number"
+        and value == value
+        and value ~= math.huge
+        and value ~= -math.huge
+end
+
 local function isPart(object)
     return type(object) == "table"
         and object._isInstance == true
@@ -108,8 +115,28 @@ function Physics:IsRegistered(part)
     return self._parts[part] ~= nil
 end
 
+-- Supports both:
+-- SetGravity({X = 0, Y = -10, Z = 0})
+-- SetGravity(0, -10, 0)
 function Physics:SetGravity(x, y, z)
-    self.Gravity = vector(x, y, z)
+    local newGravity
+
+    if type(x) == "table" then
+        newGravity = copyVector(x)
+    else
+        newGravity = vector(x, y, z)
+    end
+
+    if not isValidNumber(newGravity.X)
+        or not isValidNumber(newGravity.Y)
+        or not isValidNumber(newGravity.Z)
+    then
+        error("Gravity must contain valid numeric X, Y and Z components", 2)
+    end
+
+    self.Gravity = newGravity
+
+    return true
 end
 
 function Physics:GetGravity()
@@ -171,11 +198,7 @@ function Physics:GetPosition(part)
 end
 
 function Physics:SetMass(part, mass)
-    if type(mass) ~= "number"
-        or mass <= 0
-        or mass ~= mass
-        or mass == math.huge
-    then
+    if not isValidNumber(mass) or mass <= 0 then
         error("Mass must be a positive finite number", 2)
     end
 
@@ -204,11 +227,7 @@ function Physics:Step(deltaTime)
         return 0
     end
 
-    if type(deltaTime) ~= "number"
-        or deltaTime < 0
-        or deltaTime ~= deltaTime
-        or deltaTime == math.huge
-    then
+    if not isValidNumber(deltaTime) or deltaTime < 0 then
         error("Physics:Step expects a valid non-negative deltaTime", 2)
     end
 
@@ -218,15 +237,19 @@ function Physics:Step(deltaTime)
     local updated = 0
 
     for part, state in pairs(self._parts) do
-        if part.Destroyed then
+        if part.Destroyed or part._destroyed then
             self._parts[part] = nil
+            self._statistics.RemovedParts += 1
+
         elseif part.Anchored then
             state.Position = copyVector(part.Position)
             state.Velocity = vector()
+
             part.Velocity = vector()
+
         else
-            local gravity = self.Gravity
-            local acceleration = state.Acceleration
+            local gravity = copyVector(self.Gravity)
+            local acceleration = copyVector(state.Acceleration)
 
             local totalAcceleration = add(
                 gravity,
@@ -257,6 +280,8 @@ end
 
 function Physics:SetEnabled(enabled)
     self.Enabled = enabled == true
+
+    return self.Enabled
 end
 
 function Physics:IsEnabled()
@@ -301,6 +326,8 @@ function Physics:Reset()
         RegisteredParts = 0,
         RemovedParts = 0,
     }
+
+    return true
 end
 
 return Physics
