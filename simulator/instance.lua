@@ -5,6 +5,39 @@ local Instance = {}
 local InstanceMethods = {}
 local InstanceMetatable = {}
 
+-- ==========================================
+-- CLASS INHERITANCE
+-- ==========================================
+
+local inheritance = {
+    Workspace = {
+        Model = true,
+        WorldRoot = true,
+    },
+
+    Part = {
+        BasePart = true,
+    },
+
+    Script = {
+        BaseScript = true,
+        LuaSourceContainer = true,
+    },
+
+    LocalScript = {
+        BaseScript = true,
+        LuaSourceContainer = true,
+    },
+
+    ModuleScript = {
+        LuaSourceContainer = true,
+    },
+}
+
+-- ==========================================
+-- CLASS DEFAULTS
+-- ==========================================
+
 local classDefaults = {
     Workspace = {
         Name = "Workspace",
@@ -45,15 +78,83 @@ local classDefaults = {
     },
 }
 
+-- ==========================================
+-- INTERNAL VALIDATION
+-- ==========================================
+
+local function checkAlive(self)
+    if self._destroyed then
+        error("Cannot modify a destroyed Instance", 3)
+    end
+end
+
+local function isValidInstance(object)
+    return type(object) == "table"
+        and object._isInstance == true
+        and type(object._children) == "table"
+        and type(object._properties) == "table"
+end
+
+local function validateInstance(object)
+    if not isValidInstance(object) then
+        error("Expected an Instance", 3)
+    end
+
+    if object._destroyed then
+        error("Cannot use a destroyed Instance", 3)
+    end
+end
+
+-- ==========================================
+-- TABLE COPYING
+-- ==========================================
+
+local function deepCopy(value, seen)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    -- Preserve references to Instances.
+    if value._isInstance then
+        return value
+    end
+
+    seen = seen or {}
+
+    if seen[value] then
+        return seen[value]
+    end
+
+    local copy = {}
+
+    seen[value] = copy
+
+    for key, item in pairs(value) do
+        copy[deepCopy(key, seen)] = deepCopy(item, seen)
+    end
+
+    local metatable = getmetatable(value)
+
+    if metatable then
+        setmetatable(copy, metatable)
+    end
+
+    return copy
+end
+
+-- ==========================================
+-- HIERARCHY HELPERS
+-- ==========================================
+
 local function removeChild(parent, child)
     if not parent then
         return
     end
 
-    for i, existing in ipairs(parent._children) do
-        if existing == child then
+    for i = #parent._children, 1, -1 do
+        if parent._children[i] == child then
             table.remove(parent._children, i)
-            break
+            return
         end
     end
 end
@@ -73,14 +174,24 @@ local function isAncestor(object, possibleAncestor)
 end
 
 local function notifyChanged(self, property)
-    self.Changed:Fire(property)
+    if self._destroyed then
+        return
+    end
+
+    if self.Changed and not self.Changed:IsDestroyed() then
+        self.Changed:Fire(property)
+    end
 
     local signal = self._propertySignals[property]
 
-    if signal then
+    if signal and not signal:IsDestroyed() then
         signal:Fire()
     end
 end
+
+-- ==========================================
+-- METATABLE
+-- ==========================================
 
 InstanceMetatable.__index = function(self, key)
     if key == "Parent" then
@@ -98,25 +209,23 @@ end
 
 InstanceMetatable.__newindex = function(self, key, value)
     if key == "Parent" then
-        if self._destroyed then
-            error("Cannot modify a destroyed Instance")
-        end
+        checkAlive(self)
 
         if value == self then
-            error("An Instance cannot be its own parent")
+            error("An Instance cannot be its own parent", 2)
         end
 
         if value ~= nil then
-            if type(value) ~= "table" or not value._isInstance then
-                error("Parent must be an Instance or nil")
+            if not isValidInstance(value) then
+                error("Parent must be an Instance or nil", 2)
             end
 
             if value._destroyed then
-                error("Cannot parent to a destroyed Instance")
+                error("Cannot parent to a destroyed Instance", 2)
             end
 
             if isAncestor(value, self) then
-                error("Cannot create a circular hierarchy")
+                error("Cannot create a circular hierarchy", 2)
             end
         end
 
@@ -135,8 +244,11 @@ InstanceMetatable.__newindex = function(self, key, value)
         end
 
         notifyChanged(self, "Parent")
+
         return
     end
+
+    checkAlive(self)
 
     if self._properties[key] ~= value then
         self._properties[key] = value
@@ -144,31 +256,25 @@ InstanceMetatable.__newindex = function(self, key, value)
     end
 end
 
+-- ==========================================
+-- INSTANCE CREATION
+-- ==========================================
+
 function Instance.new(className)
     if type(className) ~= "string" then
-        error("Instance.new expects a class name")
+        error("Instance.new expects a class name", 2)
     end
 
     local defaults = classDefaults[className]
 
     if not defaults then
-        error("Unknown class: " .. className)
+        error("Unknown class: " .. className, 2)
     end
 
     local properties = {}
 
     for key, value in pairs(defaults) do
-        if type(value) == "table" then
-            local copy = {}
-
-            for k, v in pairs(value) do
-                copy[k] = v
-            end
-
-            properties[key] = copy
-        else
-            properties[key] = value
-        end
+        properties[key] = deepCopy(value)
     end
 
     properties.ClassName = className
@@ -176,53 +282,51 @@ function Instance.new(className)
 
     local object = {
         _properties = properties,
+
         _parent = nil,
         _children = {},
+
         _attributes = {},
+
         _propertySignals = {},
         _attributeSignals = {},
+
         _destroyed = false,
         _isInstance = true,
+
         Changed = Signal.new(),
     }
 
     return setmetatable(object, InstanceMetatable)
 end
 
+-- ==========================================
+-- CLASS INFORMATION
+-- ==========================================
+
 function InstanceMethods:IsA(className)
-    if self.ClassName == className or className == "Instance" then
+    if type(className) ~= "string" then
+        return false
+    end
+
+    local currentClass = self.ClassName
+
+    if currentClass == className or className == "Instance" then
         return true
     end
 
-    local inheritance = {
-        Workspace = {
-            Model = true,
-            WorldRoot = true,
-        },
+    local classes = inheritance[currentClass]
 
-        Part = {
-            BasePart = true,
-        },
-
-        Script = {
-            BaseScript = true,
-            LuaSourceContainer = true,
-        },
-
-        LocalScript = {
-            BaseScript = true,
-            LuaSourceContainer = true,
-        },
-
-        ModuleScript = {
-            LuaSourceContainer = true,
-        },
-    }
-
-    return inheritance[self.ClassName]
-        and inheritance[self.ClassName][className] == true
-        or false
+    return classes ~= nil and classes[className] == true
 end
+
+function InstanceMethods:IsDestroyed()
+    return self._destroyed
+end
+
+-- ==========================================
+-- CHILDREN
+-- ==========================================
 
 function InstanceMethods:GetChildren()
     local children = {}
@@ -236,18 +340,28 @@ end
 
 function InstanceMethods:GetDescendants()
     local descendants = {}
+    local stack = {}
 
-    local function collect(parent)
-        for _, child in ipairs(parent._children) do
-            table.insert(descendants, child)
-            collect(child)
+    for i = #self._children, 1, -1 do
+        table.insert(stack, self._children[i])
+    end
+
+    while #stack > 0 do
+        local current = table.remove(stack)
+
+        table.insert(descendants, current)
+
+        for i = #current._children, 1, -1 do
+            table.insert(stack, current._children[i])
         end
     end
 
-    collect(self)
-
     return descendants
 end
+
+-- ==========================================
+-- CHILD SEARCH
+-- ==========================================
 
 function InstanceMethods:FindFirstChild(name, recursive)
     for _, child in ipairs(self._children) do
@@ -257,11 +371,11 @@ function InstanceMethods:FindFirstChild(name, recursive)
     end
 
     if recursive then
-        for _, child in ipairs(self._children) do
-            local found = child:FindFirstChild(name, true)
+        local descendants = self:GetDescendants()
 
-            if found then
-                return found
+        for _, descendant in ipairs(descendants) do
+            if descendant.Name == name then
+                return descendant
             end
         end
     end
@@ -287,17 +401,19 @@ function InstanceMethods:FindFirstChildWhichIsA(className, recursive)
     end
 
     if recursive then
-        for _, child in ipairs(self._children) do
-            local found = child:FindFirstChildWhichIsA(className, true)
-
-            if found then
-                return found
+        for _, descendant in ipairs(self:GetDescendants()) do
+            if descendant:IsA(className) then
+                return descendant
             end
         end
     end
 
     return nil
 end
+
+-- ==========================================
+-- ANCESTORS
+-- ==========================================
 
 function InstanceMethods:FindFirstAncestor(name)
     local current = self.Parent
@@ -314,6 +430,10 @@ function InstanceMethods:FindFirstAncestor(name)
 end
 
 function InstanceMethods:IsDescendantOf(ancestor)
+    if not isValidInstance(ancestor) then
+        return false
+    end
+
     local current = self.Parent
 
     while current do
@@ -328,21 +448,39 @@ function InstanceMethods:IsDescendantOf(ancestor)
 end
 
 function InstanceMethods:IsAncestorOf(descendant)
+    if not isValidInstance(descendant) then
+        return false
+    end
+
     return descendant:IsDescendantOf(self)
 end
 
+-- ==========================================
+-- FULL NAME
+-- ==========================================
+
 function InstanceMethods:GetFullName()
-    if not self.Parent then
-        return self.Name
+    local names = {}
+    local current = self
+
+    while current do
+        table.insert(names, 1, tostring(current.Name))
+        current = current.Parent
     end
 
-    return self.Parent:GetFullName() .. "." .. self.Name
+    return table.concat(names, ".")
 end
+
+-- ==========================================
+-- PROPERTY SIGNALS
+-- ==========================================
 
 function InstanceMethods:GetPropertyChangedSignal(property)
     if type(property) ~= "string" then
-        error("Property name must be a string")
+        error("Property name must be a string", 2)
     end
+
+    checkAlive(self)
 
     if not self._propertySignals[property] then
         self._propertySignals[property] = Signal.new()
@@ -351,9 +489,15 @@ function InstanceMethods:GetPropertyChangedSignal(property)
     return self._propertySignals[property]
 end
 
+-- ==========================================
+-- ATTRIBUTES
+-- ==========================================
+
 function InstanceMethods:SetAttribute(name, value)
+    checkAlive(self)
+
     if type(name) ~= "string" then
-        error("Attribute name must be a string")
+        error("Attribute name must be a string", 2)
     end
 
     if self._attributes[name] == value then
@@ -384,8 +528,10 @@ function InstanceMethods:GetAttributes()
 end
 
 function InstanceMethods:RemoveAttribute(name)
+    checkAlive(self)
+
     if type(name) ~= "string" then
-        error("Attribute name must be a string")
+        error("Attribute name must be a string", 2)
     end
 
     if self._attributes[name] == nil then
@@ -403,8 +549,10 @@ end
 
 function InstanceMethods:GetAttributeChangedSignal(name)
     if type(name) ~= "string" then
-        error("Attribute name must be a string")
+        error("Attribute name must be a string", 2)
     end
+
+    checkAlive(self)
 
     if not self._attributeSignals[name] then
         self._attributeSignals[name] = Signal.new()
@@ -423,7 +571,13 @@ function InstanceMethods:GetAttributesCount()
     return count
 end
 
+-- ==========================================
+-- CLEAR CHILDREN
+-- ==========================================
+
 function InstanceMethods:ClearAllChildren()
+    checkAlive(self)
+
     local children = self:GetChildren()
 
     for _, child in ipairs(children) do
@@ -431,7 +585,15 @@ function InstanceMethods:ClearAllChildren()
     end
 end
 
+-- ==========================================
+-- CLONE
+-- ==========================================
+
 function InstanceMethods:Clone()
+    if self._destroyed then
+        error("Cannot clone a destroyed Instance", 2)
+    end
+
     if not self.Archivable then
         return nil
     end
@@ -439,21 +601,11 @@ function InstanceMethods:Clone()
     local clone = Instance.new(self.ClassName)
 
     for key, value in pairs(self._properties) do
-        if type(value) == "table" then
-            local copy = {}
-
-            for k, v in pairs(value) do
-                copy[k] = v
-            end
-
-            clone[key] = copy
-        else
-            clone[key] = value
-        end
+        clone._properties[key] = deepCopy(value)
     end
 
     for name, value in pairs(self._attributes) do
-        clone:SetAttribute(name, value)
+        clone:SetAttribute(name, deepCopy(value))
     end
 
     for _, child in ipairs(self._children) do
@@ -467,25 +619,58 @@ function InstanceMethods:Clone()
     return clone
 end
 
+-- ==========================================
+-- DESTROY
+-- ==========================================
+
 function InstanceMethods:Destroy()
     if self._destroyed then
         return
     end
 
-    self:ClearAllChildren()
-    self.Parent = nil
+    -- Mark destroyed first to prevent re-entry.
+    self._destroyed = true
 
-    self.Changed:Destroy()
+    -- Destroy children.
+    local children = self:GetChildren()
 
+    for _, child in ipairs(children) do
+        child:Destroy()
+    end
+
+    -- Detach from parent without invoking Parent setter.
+    local oldParent = self._parent
+
+    if oldParent then
+        removeChild(oldParent, self)
+        rawset(self, "_parent", nil)
+    end
+
+    -- Destroy Changed signal.
+    if self.Changed then
+        self.Changed:Destroy()
+    end
+
+    -- Destroy property signals.
     for _, signal in pairs(self._propertySignals) do
         signal:Destroy()
     end
 
+    -- Destroy attribute signals.
     for _, signal in pairs(self._attributeSignals) do
         signal:Destroy()
     end
 
-    self._destroyed = true
+    -- Release internal signal references.
+    self._propertySignals = {}
+    self._attributeSignals = {}
+
+    -- Release attributes.
+    self._attributes = {}
 end
+
+-- ==========================================
+-- MODULE EXPORT
+-- ==========================================
 
 return Instance
