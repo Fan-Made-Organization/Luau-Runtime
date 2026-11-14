@@ -5,6 +5,7 @@ local BuiltinServices = require("./builtin_services")
 local Scheduler = require("./scheduler")
 local DataModel = require("./datamodel")
 local Task = require("./task")
+local ValueObjects = require("./value_objects")
 
 local Game = {}
 
@@ -28,6 +29,8 @@ Game.Scheduler = Scheduler
 Game.DataModel = DataModel
 Game.Task = Task
 
+Game.ValueObjects = ValueObjects
+
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
 
@@ -36,6 +39,10 @@ Game.BindableFunction = BuiltinServices.BindableFunction
 
 Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
+
+function Game:CreateValue(className, initialValue)
+    return ValueObjects.new(className, initialValue)
+end
 
 function Game:GetService(name)
     return Services.GetService(name)
