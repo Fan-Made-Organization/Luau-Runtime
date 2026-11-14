@@ -12,6 +12,7 @@ local Physics = require("./physics_service")
 local CollisionService = require("./collision_service")
 local Diagnostics = require("./runtime_diagnostics")
 local RuntimeManager = require("./runtime_manager")
+local InstanceExtensions = require("./instance_extensions")
 
 local Game = {}
 
@@ -40,6 +41,8 @@ RuntimeManager:Configure({
 })
 
 Game.Instance = InstanceModule
+Game.InstanceExtensions = InstanceExtensions
+
 Game.Scheduler = Scheduler
 Game.DataModel = DataModel
 Game.Task = Task
@@ -74,6 +77,14 @@ end
 
 function Game:GetObjectId(object)
     return ObjectRegistry:GetId(object)
+end
+
+function Game:GetInstanceInformation(object)
+    return InstanceExtensions.GetInformation(object)
+end
+
+function Game:FindInstanceByPath(object, path)
+    return InstanceExtensions.FindByPath(object, path)
 end
 
 function Game:GetService(name)
