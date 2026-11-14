@@ -7,6 +7,7 @@ local DataModel = require("./datamodel")
 local Task = require("./task")
 local ValueObjects = require("./value_objects")
 local ObjectRegistry = require("./object_registry")
+local Physics = require("./physics_service")
 
 local Game = {}
 
@@ -32,6 +33,7 @@ Game.Task = Task
 
 Game.ValueObjects = ValueObjects
 Game.ObjectRegistry = ObjectRegistry
+Game.Physics = Physics
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -103,7 +105,13 @@ function Game:Stop()
 end
 
 function Game:Step(deltaTime)
-    return Scheduler:Step(deltaTime)
+    local schedulerResult = Scheduler:Step(deltaTime)
+    local physicsResult = Physics:Step(deltaTime)
+
+    return {
+        Scheduler = schedulerResult,
+        Physics = physicsResult,
+    }
 end
 
 return Game
