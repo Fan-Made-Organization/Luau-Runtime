@@ -16,27 +16,56 @@ local Metatable = {
     end,
 
     __newindex = function(self, key, value)
-        if key == "OnServerInvoke" then
-            if value ~= nil and type(value) ~= "function" then
-                error("OnServerInvoke must be a function or nil")
+        if key == "OnServerInvoke" or key == "OnClientInvoke" then
+            if rawget(self, "_destroyed") then
+                error("Cannot modify a destroyed RemoteFunction")
             end
 
-            rawset(self, "_serverCallback", value)
-            return
-        end
-
-        if key == "OnClientInvoke" then
             if value ~= nil and type(value) ~= "function" then
-                error("OnClientInvoke must be a function or nil")
+                error(key .. " must be a function or nil")
             end
 
-            rawset(self, "_clientCallback", value)
+            if key == "OnServerInvoke" then
+                rawset(self, "_serverCallback", value)
+            else
+                rawset(self, "_clientCallback", value)
+            end
+
             return
         end
 
         rawset(self, key, value)
     end,
 }
+
+local function checkDestroyed(self)
+    if self._destroyed then
+        error("RemoteFunction has been destroyed")
+    end
+end
+
+local function isValidPlayer(player)
+    if type(player) ~= "table" then
+        return false
+    end
+
+    if player._destroyed == true then
+        return false
+    end
+
+    if type(player.IsDestroyed) == "function" then
+        local success, result = pcall(
+            player.IsDestroyed,
+            player
+        )
+
+        if success and result == true then
+            return false
+        end
+    end
+
+    return true
+end
 
 function RemoteFunction.new()
     local self = {
@@ -52,28 +81,43 @@ function RemoteFunction.new()
         _serverInvocations = 0,
         _clientInvocations = 0,
         _errors = 0,
+
+        _activeInvocations = 0,
+        _maximumDepth = 0,
+        _lastError = nil,
     }
 
     return setmetatable(self, Metatable)
 end
 
-local function checkDestroyed(self)
-    if self._destroyed then
-        error("RemoteFunction has been destroyed")
-    end
-end
-
 local function invokeCallback(self, callback, ...)
     if type(callback) ~= "function" then
-        error("RemoteFunction callback is not assigned")
+        self._errors = self._errors + 1
+        self._lastError = "RemoteFunction callback is not assigned"
+
+        error(self._lastError)
     end
 
-    local results = table.pack(pcall(callback, ...))
+    self._activeInvocations = self._activeInvocations + 1
+
+    if self._activeInvocations > self._maximumDepth then
+        self._maximumDepth = self._activeInvocations
+    end
+
+    local results = table.pack(
+        pcall(callback, ...)
+    )
+
+    self._activeInvocations = self._activeInvocations - 1
 
     if not results[1] then
         self._errors = self._errors + 1
+        self._lastError = tostring(results[2])
+
         error(results[2])
     end
+
+    self._lastError = nil
 
     return table.unpack(results, 2, results.n)
 end
@@ -81,8 +125,8 @@ end
 function Methods:SetLocalPlayer(player)
     checkDestroyed(self)
 
-    if player ~= nil and type(player) ~= "table" then
-        error("LocalPlayer must be a Player-like table or nil")
+    if player ~= nil and not isValidPlayer(player) then
+        error("LocalPlayer must be a valid Player-like table or nil")
     end
 
     self._localPlayer = player
@@ -91,11 +135,22 @@ function Methods:SetLocalPlayer(player)
 end
 
 function Methods:GetLocalPlayer()
+    checkDestroyed(self)
+
     return self._localPlayer
 end
 
 function Methods:InvokeServer(...)
     checkDestroyed(self)
+
+    if self._localPlayer ~= nil
+        and not isValidPlayer(self._localPlayer) then
+        self._localPlayer = nil
+        self._errors = self._errors + 1
+        self._lastError = "Active simulated player is invalid"
+
+        error(self._lastError)
+    end
 
     self._serverInvocations = self._serverInvocations + 1
 
@@ -122,9 +177,18 @@ function Methods:InvokeClient(player, ...)
         error("InvokeClient expects a player")
     end
 
+    if not isValidPlayer(player) then
+        self._errors = self._errors + 1
+        self._lastError = "Player is invalid or destroyed"
+
+        error(self._lastError)
+    end
+
     if player ~= self._localPlayer then
         self._errors = self._errors + 1
-        error("Player is not the active simulated client")
+        self._lastError = "Player is not the active simulated client"
+
+        error(self._lastError)
     end
 
     self._clientInvocations = self._clientInvocations + 1
@@ -141,6 +205,9 @@ function Methods:GetStatistics()
         ServerInvocations = self._serverInvocations,
         ClientInvocations = self._clientInvocations,
         Errors = self._errors,
+        ActiveInvocations = self._activeInvocations,
+        MaximumDepth = self._maximumDepth,
+        LastError = self._lastError,
     }
 end
 
@@ -150,6 +217,14 @@ end
 
 function Methods:GetErrorCount()
     return self._errors
+end
+
+function Methods:GetActiveInvocationCount()
+    return self._activeInvocations
+end
+
+function Methods:GetLastError()
+    return self._lastError
 end
 
 function Methods:IsDestroyed()
@@ -170,11 +245,12 @@ function Methods:Destroy()
         return
     end
 
+    self._destroyed = true
+
     self._serverCallback = nil
     self._clientCallback = nil
     self._localPlayer = nil
-
-    self._destroyed = true
+    self._lastError = nil
 end
 
 return RemoteFunction
