@@ -11,13 +11,31 @@ local ConnectionMetatable = {
     __index = ConnectionMethods
 }
 
+local function removeConnection(signal, connection)
+    if not signal then
+        return
+    end
+
+    for i = #signal._connections, 1, -1 do
+        if signal._connections[i] == connection then
+            table.remove(signal._connections, i)
+            return
+        end
+    end
+end
+
 function Signal.new()
-    local self = {
+    return setmetatable({
         _connections = {},
         _destroyed = false,
-    }
 
-    return setmetatable(self, SignalMetatable)
+        _statistics = {
+            connectionsCreated = 0,
+            callbacksExecuted = 0,
+            callbacksFailed = 0,
+            fires = 0,
+        },
+    }, SignalMetatable)
 end
 
 function SignalMethods:Connect(callback)
@@ -29,20 +47,25 @@ function SignalMethods:Connect(callback)
         error("Connect expects a function")
     end
 
-    local connection = {
+    local connection = setmetatable({
         Connected = true,
         _callback = callback,
         _signal = self,
-    }
-
-    setmetatable(connection, ConnectionMetatable)
+    }, ConnectionMetatable)
 
     table.insert(self._connections, connection)
+
+    self._statistics.connectionsCreated =
+        self._statistics.connectionsCreated + 1
 
     return connection
 end
 
 function SignalMethods:Once(callback)
+    if type(callback) ~= "function" then
+        error("Once expects a function")
+    end
+
     local connection
 
     connection = self:Connect(function(...)
@@ -58,18 +81,34 @@ function SignalMethods:Fire(...)
         return
     end
 
+    self._statistics.fires = self._statistics.fires + 1
+
     local arguments = table.pack(...)
     local connections = {}
 
-    for _, connection in ipairs(self._connections) do
-        table.insert(connections, connection)
+    for i, connection in ipairs(self._connections) do
+        connections[i] = connection
     end
 
     for _, connection in ipairs(connections) do
         if connection.Connected then
-            connection._callback(
+
+            local success, errorMessage = pcall(
+                connection._callback,
                 table.unpack(arguments, 1, arguments.n)
             )
+
+            if success then
+                self._statistics.callbacksExecuted =
+                    self._statistics.callbacksExecuted + 1
+            else
+                self._statistics.callbacksFailed =
+                    self._statistics.callbacksFailed + 1
+
+                -- Keep dispatching other callbacks.
+                -- The error is recorded in statistics.
+                connection._lastError = tostring(errorMessage)
+            end
         end
     end
 end
@@ -95,13 +134,30 @@ function SignalMethods:Count()
     return count
 end
 
+function SignalMethods:GetStatistics()
+    local result = {}
+
+    for key, value in pairs(self._statistics) do
+        result[key] = value
+    end
+
+    result.activeConnections = self:Count()
+
+    return result
+end
+
+function SignalMethods:IsDestroyed()
+    return self._destroyed
+end
+
 function SignalMethods:Destroy()
     if self._destroyed then
         return
     end
 
-    self:DisconnectAll()
     self._destroyed = true
+
+    self:DisconnectAll()
 end
 
 function ConnectionMethods:Disconnect()
@@ -113,16 +169,14 @@ function ConnectionMethods:Disconnect()
 
     local signal = self._signal
 
-    if signal then
-        for i, connection in ipairs(signal._connections) do
-            if connection == self then
-                table.remove(signal._connections, i)
-                break
-            end
-        end
-    end
-
     self._signal = nil
+    self._callback = nil
+
+    removeConnection(signal, self)
+end
+
+function ConnectionMethods:IsConnected()
+    return self.Connected
 end
 
 return Signal
