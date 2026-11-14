@@ -16,6 +16,7 @@ local InstanceExtensions = require("./instance_extensions")
 local RuntimeEnvironment = require("./runtime_environment")
 local ErrorHandler = require("./error_handler")
 local ScriptSandbox = require("./script_sandbox")
+local RuntimeStatistics = require("./runtime_statistics")
 
 local Game = {}
 
@@ -62,6 +63,7 @@ Game.Environment = RuntimeEnvironment.GetDefault()
 
 Game.ErrorHandler = ErrorHandler
 Game.ScriptSandbox = ScriptSandbox
+Game.RuntimeStatistics = RuntimeStatistics
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -71,6 +73,34 @@ Game.BindableFunction = BuiltinServices.BindableFunction
 
 Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
+
+RuntimeStatistics:RegisterProvider("RuntimeManager", function()
+    return RuntimeManager:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Scheduler", function()
+    return Scheduler:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Physics", function()
+    return Physics:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Collisions", function()
+    return CollisionService:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Diagnostics", function()
+    return Diagnostics:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Errors", function()
+    return ErrorHandler:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("ObjectRegistry", function()
+    return ObjectRegistry:GetStatistics()
+end)
 
 function Game:CreateValue(className, initialValue)
     return ValueObjects.new(className, initialValue)
@@ -159,6 +189,26 @@ function Game:GetErrorStatistics()
     return ErrorHandler:GetStatistics()
 end
 
+function Game:IncrementStatistic(name, amount)
+    return RuntimeStatistics:Increment(name, amount)
+end
+
+function Game:SetStatistic(name, value)
+    return RuntimeStatistics:SetValue(name, value)
+end
+
+function Game:GetStatistic(name)
+    return RuntimeStatistics:GetValue(name)
+end
+
+function Game:GetPerformanceStatistics()
+    return RuntimeStatistics:GetSystemStatistics()
+end
+
+function Game:GetRuntimeStatistics()
+    return RuntimeStatistics:GetStatistics()
+end
+
 function Game:GetService(name)
     return Services.GetService(name)
 end
@@ -220,9 +270,28 @@ function Game:GetRuntimeStatus()
 end
 
 function Game:Step(deltaTime)
+    local totalTimer = RuntimeStatistics:BeginMeasure("Game.Step")
+
+    local schedulerTimer = RuntimeStatistics:BeginMeasure("Scheduler.Step")
     local schedulerResult = Scheduler:Step(deltaTime)
+    RuntimeStatistics:EndMeasure(schedulerTimer)
+
+    local physicsTimer = RuntimeStatistics:BeginMeasure("Physics.Step")
     local physicsResult = Physics:Step(deltaTime)
+    RuntimeStatistics:EndMeasure(physicsTimer)
+
+    local collisionTimer = RuntimeStatistics:BeginMeasure("Collision.Step")
     local collisionResult = CollisionService:Step()
+    RuntimeStatistics:EndMeasure(collisionTimer)
+
+    RuntimeStatistics:Increment("Frames")
+    RuntimeStatistics:Increment("SchedulerSteps")
+    RuntimeStatistics:Increment("PhysicsSteps")
+    RuntimeStatistics:Increment("CollisionSteps")
+
+    RuntimeStatistics:Record("FrameDeltaTime", deltaTime or 0)
+
+    RuntimeStatistics:EndMeasure(totalTimer)
 
     return {
         Scheduler = schedulerResult,
