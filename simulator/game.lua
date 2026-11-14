@@ -9,6 +9,7 @@ local ValueObjects = require("./value_objects")
 local ObjectRegistry = require("./object_registry")
 local Physics = require("./physics_service")
 local CollisionService = require("./collision_service")
+local Diagnostics = require("./runtime_diagnostics")
 
 local Game = {}
 
@@ -36,6 +37,7 @@ Game.ValueObjects = ValueObjects
 Game.ObjectRegistry = ObjectRegistry
 Game.Physics = Physics
 Game.CollisionService = CollisionService
+Game.Diagnostics = Diagnostics
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
