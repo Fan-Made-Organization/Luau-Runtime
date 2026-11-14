@@ -7,6 +7,35 @@ local Metatable = {
     __index = Methods,
 }
 
+local function checkDestroyed(self)
+    if self._destroyed then
+        error("RemoteEvent has been destroyed")
+    end
+end
+
+local function isValidPlayer(player)
+    if type(player) ~= "table" then
+        return false
+    end
+
+    if player._destroyed == true then
+        return false
+    end
+
+    if type(player.IsDestroyed) == "function" then
+        local success, result = pcall(
+            player.IsDestroyed,
+            player
+        )
+
+        if success and result == true then
+            return false
+        end
+    end
+
+    return true
+end
+
 function RemoteEvent.new()
     local self = {
         ClassName = "RemoteEvent",
@@ -21,22 +50,17 @@ function RemoteEvent.new()
         _serverMessages = 0,
         _clientMessages = 0,
         _rejectedMessages = 0,
+        _errors = 0,
     }
 
     return setmetatable(self, Metatable)
 end
 
-local function checkDestroyed(self)
-    if self._destroyed then
-        error("RemoteEvent has been destroyed")
-    end
-end
-
 function Methods:SetLocalPlayer(player)
     checkDestroyed(self)
 
-    if player ~= nil and type(player) ~= "table" then
-        error("LocalPlayer must be a Player-like table or nil")
+    if player ~= nil and not isValidPlayer(player) then
+        error("LocalPlayer must be a valid Player-like table or nil")
     end
 
     self._localPlayer = player
@@ -45,18 +69,35 @@ function Methods:SetLocalPlayer(player)
 end
 
 function Methods:GetLocalPlayer()
+    checkDestroyed(self)
+
     return self._localPlayer
 end
 
 function Methods:FireServer(...)
     checkDestroyed(self)
 
+    if self._localPlayer ~= nil
+        and not isValidPlayer(self._localPlayer) then
+        self._localPlayer = nil
+        self._rejectedMessages = self._rejectedMessages + 1
+
+        return false, "Active simulated player is invalid"
+    end
+
     self._serverMessages = self._serverMessages + 1
 
-    self.OnServerEvent:Fire(
+    local success, result = pcall(
+        self.OnServerEvent.Fire,
+        self.OnServerEvent,
         self._localPlayer,
         ...
     )
+
+    if not success then
+        self._errors = self._errors + 1
+        return false, result
+    end
 
     return true
 end
@@ -68,6 +109,11 @@ function Methods:FireClient(player, ...)
         error("FireClient expects a player")
     end
 
+    if not isValidPlayer(player) then
+        self._rejectedMessages = self._rejectedMessages + 1
+        return false, "Player is invalid or destroyed"
+    end
+
     if player ~= self._localPlayer then
         self._rejectedMessages = self._rejectedMessages + 1
         return false, "Player is not the active simulated client"
@@ -75,7 +121,16 @@ function Methods:FireClient(player, ...)
 
     self._clientMessages = self._clientMessages + 1
 
-    self.OnClientEvent:Fire(...)
+    local success, result = pcall(
+        self.OnClientEvent.Fire,
+        self.OnClientEvent,
+        ...
+    )
+
+    if not success then
+        self._errors = self._errors + 1
+        return false, result
+    end
 
     return true
 end
@@ -87,27 +142,65 @@ function Methods:FireAllClients(...)
         return 0
     end
 
+    if not isValidPlayer(self._localPlayer) then
+        self._localPlayer = nil
+        self._rejectedMessages = self._rejectedMessages + 1
+
+        return 0
+    end
+
     self._clientMessages = self._clientMessages + 1
 
-    self.OnClientEvent:Fire(...)
+    local success = pcall(
+        self.OnClientEvent.Fire,
+        self.OnClientEvent,
+        ...
+    )
+
+    if not success then
+        self._errors = self._errors + 1
+        return 0
+    end
 
     return 1
 end
 
+function Methods:DisconnectAll()
+    checkDestroyed(self)
+
+    self.OnServerEvent:DisconnectAll()
+    self.OnClientEvent:DisconnectAll()
+
+    return true
+end
+
 function Methods:GetStatistics()
+    checkDestroyed(self)
+
     return {
         ServerMessages = self._serverMessages,
         ClientMessages = self._clientMessages,
         RejectedMessages = self._rejectedMessages,
+        Errors = self._errors,
 
         ServerConnections = self.OnServerEvent:Count(),
         ClientConnections = self.OnClientEvent:Count(),
+
+        TotalConnections = self:GetConnectionCount(),
     }
 end
 
 function Methods:GetConnectionCount()
+    if self._destroyed then
+        return 0
+    end
+
     return self.OnServerEvent:Count()
         + self.OnClientEvent:Count()
+end
+
+function Methods:GetErrorCount()
+    return self._errors
 end
 
 function Methods:IsDestroyed()
@@ -128,11 +221,12 @@ function Methods:Destroy()
         return
     end
 
+    self._destroyed = true
+
     self.OnServerEvent:Destroy()
     self.OnClientEvent:Destroy()
 
     self._localPlayer = nil
-    self._destroyed = true
 end
 
 return RemoteEvent
