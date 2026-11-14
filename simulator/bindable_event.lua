@@ -11,8 +11,11 @@ function BindableEvent.new()
     local self = {
         ClassName = "BindableEvent",
         Name = "BindableEvent",
+
         Event = Signal.new(),
+
         _destroyed = false,
+        _fireCount = 0,
     }
 
     return setmetatable(self, Metatable)
@@ -23,7 +26,53 @@ function Methods:Fire(...)
         error("Cannot fire a destroyed BindableEvent")
     end
 
+    self._fireCount = self._fireCount + 1
+
     self.Event:Fire(...)
+
+    return true
+end
+
+function Methods:DisconnectAll()
+    if self._destroyed then
+        return false
+    end
+
+    self.Event:DisconnectAll()
+
+    return true
+end
+
+function Methods:GetConnectionCount()
+    if self._destroyed then
+        return 0
+    end
+
+    return self.Event:Count()
+end
+
+function Methods:GetFireCount()
+    return self._fireCount
+end
+
+function Methods:GetStatistics()
+    local signalStats = {}
+
+    if not self._destroyed
+        and type(self.Event.GetStatistics) == "function" then
+        signalStats = self.Event:GetStatistics()
+    end
+
+    return {
+        Fires = self._fireCount,
+        Connections = self:GetConnectionCount(),
+        Destroyed = self._destroyed,
+        Signal = signalStats,
+    }
+end
+
+function Methods:IsDestroyed()
+    return self._destroyed
 end
 
 function Methods:Destroy()
@@ -31,16 +80,11 @@ function Methods:Destroy()
         return
     end
 
-    self.Event:Destroy()
     self._destroyed = true
-end
 
-function Methods:GetConnectionCount()
-    return self.Event:Count()
-end
-
-function Methods:IsDestroyed()
-    return self._destroyed
+    if self.Event then
+        self.Event:Destroy()
+    end
 end
 
 function Methods:GetFullName()
