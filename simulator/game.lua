@@ -33,7 +33,9 @@ Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
 
 Game.BindableEvent = BuiltinServices.BindableEvent
 Game.BindableFunction = BuiltinServices.BindableFunction
+
 Game.RemoteEvent = BuiltinServices.RemoteEvent
+Game.RemoteFunction = BuiltinServices.RemoteFunction
 
 function Game:GetService(name)
     return Services.GetService(name)
