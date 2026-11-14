@@ -8,6 +8,7 @@ local TweenService = require("./tween_service")
 local ScriptService = require("./script_service")
 local ScriptLifecycle = require("./script_lifecycle")
 local BindableEvent = require("./bindable_event")
+local BindableFunction = require("./bindable_function")
 
 local BuiltinServices = {}
 
@@ -35,9 +36,11 @@ BuiltinServices.CollectionService = CollectionService
 BuiltinServices.Debris = DebrisService
 BuiltinServices.HttpService = HttpService
 BuiltinServices.TweenService = TweenService
+
 BuiltinServices.ScriptService = ScriptService
 BuiltinServices.ScriptLifecycle = ScriptLifecycle
 
 BuiltinServices.BindableEvent = BindableEvent
+BuiltinServices.BindableFunction = BindableFunction
 
 return BuiltinServices
