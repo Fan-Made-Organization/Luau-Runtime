@@ -18,121 +18,46 @@ local ErrorHandler = require("./error_handler")
 local ScriptSandbox = require("./script_sandbox")
 local RuntimeStatistics = require("./runtime_statistics")
 
--- ==========================================
--- MODULE DIAGNOSTICS
--- ==========================================
-
-print("===== FMO MODULE DIAGNOSTICS =====")
-
-print("Services:", type(Services))
-print("Workspace:", type(Workspace))
-print("InstanceModule:", type(InstanceModule))
-print("BuiltinServices:", type(BuiltinServices))
-print("Scheduler:", type(Scheduler))
-print("DataModel:", type(DataModel))
-print("Task:", type(Task))
-print("ValueObjects:", type(ValueObjects))
-print("ObjectRegistry:", type(ObjectRegistry))
-print("Physics:", type(Physics))
-print("CollisionService:", type(CollisionService))
-print("Diagnostics:", type(Diagnostics))
-print("RuntimeManager:", type(RuntimeManager))
-print("InstanceExtensions:", type(InstanceExtensions))
-print("RuntimeEnvironment:", type(RuntimeEnvironment))
-print("ErrorHandler:", type(ErrorHandler))
-print("ScriptSandbox:", type(ScriptSandbox))
-print("RuntimeStatistics:", type(RuntimeStatistics))
-
-print("----------------------------------")
-
-print("Task.Step:", type(Task.Step))
-print("Scheduler.Step:", type(Scheduler.Step))
-print("Physics.Step:", type(Physics.Step))
-print("Physics.SetGravity:", type(Physics.SetGravity))
-print("Physics.RegisterPart:", type(Physics.RegisterPart))
-print("Physics.SetVelocity:", type(Physics.SetVelocity))
-print("Physics.SetMass:", type(Physics.SetMass))
-print("Physics.IsRegistered:", type(Physics.IsRegistered))
-print("Physics.RemovePart:", type(Physics.RemovePart))
-
-print("==================================")
-
--- ==========================================
--- MODULE VALIDATION
--- ==========================================
-
-local function validateModule(name, module, requiredMethods)
-    if type(module) ~= "table" then
-        error(
-            "[FMO] " .. name ..
-            " debe devolver una tabla. Tipo recibido: " ..
-            type(module)
-        )
-    end
-
-    for _, methodName in ipairs(requiredMethods or {}) do
-        if type(module[methodName]) ~= "function" then
-            error(
-                "[FMO] " .. name ..
-                " no contiene el método " .. methodName ..
-                ". Tipo recibido: " .. type(module[methodName])
-            )
-        end
-    end
-end
-
-validateModule("Scheduler", Scheduler, {
-    "Step",
-    "Register",
-    "Start",
-})
-
-validateModule("Task", Task, {
-    "Step",
-    "spawn",
-})
-
-validateModule("Physics", Physics, {
-    "Step",
-    "SetGravity",
-    "RegisterPart",
-    "SetVelocity",
-    "SetMass",
-    "IsRegistered",
-    "RemovePart",
-})
-
-validateModule("RuntimeManager", RuntimeManager, {
-    "Initialize",
-    "Start",
-    "ApplyConfiguration",
-})
-
-validateModule("RuntimeStatistics", RuntimeStatistics, {
-    "BeginMeasure",
-    "EndMeasure",
-})
-
--- ==========================================
--- BUILTIN SERVICES VALIDATION
--- ==========================================
-
 if type(BuiltinServices) ~= "table" then
     error(
-        "BuiltinServices debe devolver una tabla. Tipo recibido: " ..
-        type(BuiltinServices)
+        "BuiltinServices debe devolver una tabla. Tipo recibido: "
+        .. type(BuiltinServices)
     )
 end
 
--- ==========================================
--- GAME OBJECT
--- ==========================================
-
 local Game = {}
 
-Game.Services = Services
-Game.Workspace = Workspace
+-- Workspace
+Services.Register("Workspace", Workspace)
+Workspace.Parent = DataModel
+
+-- Servicios integrados
+for name, service in pairs(BuiltinServices) do
+    Services.Register(name, service)
+    Scheduler:Register(name, service)
+
+    if type(service) == "table" and service._isInstance then
+        service.Parent = DataModel
+    end
+end
+
+Scheduler:Register("Workspace", Workspace)
+Scheduler:Register("Task", Task)
+
+-- Runtime Manager
+RuntimeManager:Configure({
+    Scheduler = Scheduler,
+    Physics = Physics,
+    CollisionService = CollisionService,
+    Diagnostics = Diagnostics,
+    Task = Task,
+    Workspace = Workspace,
+})
+
+-- Sistemas principales
 Game.Instance = InstanceModule
+Game.InstanceExtensions = InstanceExtensions
+
 Game.Scheduler = Scheduler
 Game.DataModel = DataModel
 Game.Task = Task
@@ -143,69 +68,230 @@ Game.Physics = Physics
 Game.CollisionService = CollisionService
 Game.Diagnostics = Diagnostics
 Game.RuntimeManager = RuntimeManager
-Game.InstanceExtensions = InstanceExtensions
+
 Game.RuntimeEnvironment = RuntimeEnvironment
+Game.Environment = RuntimeEnvironment.GetDefault()
+
 Game.ErrorHandler = ErrorHandler
 Game.ScriptSandbox = ScriptSandbox
 Game.RuntimeStatistics = RuntimeStatistics
 
--- ==========================================
--- SERVICE REGISTRATION
--- ==========================================
+-- Servicios especiales
+Game.ScriptService = BuiltinServices.ScriptService
+Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
 
-for name, service in pairs(BuiltinServices) do
-    if type(service) == "table" then
-        Services.Register(name, service)
-        Scheduler:Register(name, service)
-    end
+Game.BindableEvent = BuiltinServices.BindableEvent
+Game.BindableFunction = BuiltinServices.BindableFunction
+
+Game.RemoteEvent = BuiltinServices.RemoteEvent
+Game.RemoteFunction = BuiltinServices.RemoteFunction
+
+-- Proveedores de estadísticas
+RuntimeStatistics:RegisterProvider("RuntimeManager", function()
+    return RuntimeManager:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Scheduler", function()
+    return Scheduler:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Physics", function()
+    return Physics:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Collisions", function()
+    return CollisionService:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Diagnostics", function()
+    return Diagnostics:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("Errors", function()
+    return ErrorHandler:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("ObjectRegistry", function()
+    return ObjectRegistry:GetStatistics()
+end)
+
+-- ValueObjects
+function Game:CreateValue(className, initialValue)
+    return ValueObjects.new(className, initialValue)
 end
 
--- ==========================================
--- STATISTICS PROVIDERS
--- ==========================================
-
-if type(RuntimeStatistics.RegisterProvider) == "function" then
-    RuntimeStatistics:RegisterProvider("Physics", function()
-        return Physics:GetStatistics()
-    end)
-
-    RuntimeStatistics:RegisterProvider("Collision", function()
-        return CollisionService:GetStatistics()
-    end)
-
-    RuntimeStatistics:RegisterProvider("Scheduler", function()
-        return {
-            Frame = Scheduler:GetFrame(),
-            ElapsedTime = Scheduler:GetElapsedTime(),
-            Running = Scheduler:IsRunning(),
-        }
-    end)
+-- Object Registry
+function Game:RegisterObject(object)
+    return ObjectRegistry:Register(object)
 end
 
--- ==========================================
--- RUNTIME MANAGER CONFIGURATION
--- ==========================================
+function Game:GetObjectById(id)
+    return ObjectRegistry:GetById(id)
+end
 
-RuntimeManager:Configure({
-    Scheduler = Scheduler,
-    Physics = Physics,
-    CollisionService = CollisionService,
-    Diagnostics = Diagnostics,
-    RuntimeStatistics = RuntimeStatistics,
-})
+function Game:GetObjectId(object)
+    return ObjectRegistry:GetId(object)
+end
 
--- ==========================================
--- GAME METHODS
--- ==========================================
+-- Instance Extensions
+function Game:GetInstanceInformation(object)
+    return InstanceExtensions.GetInformation(object)
+end
 
+function Game:FindInstanceByPath(object, path)
+    return InstanceExtensions.FindByPath(object, path)
+end
+
+-- Runtime Environment
+function Game:CreateEnvironment(name, overrides)
+    return self.Environment:CreateEnvironment(name, overrides)
+end
+
+function Game:RegisterGlobal(name, value)
+    return self.Environment:SetGlobal(name, value)
+end
+
+function Game:GetGlobal(name)
+    return self.Environment:GetGlobal(name)
+end
+
+function Game:RemoveGlobal(name)
+    return self.Environment:RemoveGlobal(name)
+end
+
+function Game:GetGlobals(includeParent)
+    return self.Environment:GetGlobals(includeParent)
+end
+
+-- Script Sandbox
+function Game:CreateSandbox(name, options)
+    options = options or {}
+
+    options.Game = self
+    options.Workspace = Workspace
+    options.Task = Task
+    options.Instance = InstanceModule
+
+    return ScriptSandbox.Create(name, options)
+end
+
+function Game:GetSandbox(id)
+    return ScriptSandbox.Get(id)
+end
+
+function Game:GetSandboxes()
+    return ScriptSandbox.GetAll()
+end
+
+function Game:GetSandboxCount()
+    return ScriptSandbox.GetCount()
+end
+
+function Game:DestroyAllSandboxes()
+    return ScriptSandbox.DestroyAll()
+end
+
+-- Error Handler
+function Game:ReportError(message, options)
+    return ErrorHandler:Report(message, options)
+end
+
+function Game:CaptureError(callback, ...)
+    return ErrorHandler:Capture(callback, ...)
+end
+
+function Game:GetErrors()
+    return ErrorHandler:GetErrors()
+end
+
+function Game:GetErrorStatistics()
+    return ErrorHandler:GetStatistics()
+end
+
+-- Runtime Statistics
+function Game:IncrementStatistic(name, amount)
+    return RuntimeStatistics:Increment(name, amount)
+end
+
+function Game:SetStatistic(name, value)
+    return RuntimeStatistics:SetValue(name, value)
+end
+
+function Game:GetStatistic(name)
+    return RuntimeStatistics:GetValue(name)
+end
+
+function Game:GetPerformanceStatistics()
+    return RuntimeStatistics:GetSystemStatistics()
+end
+
+function Game:GetRuntimeStatistics()
+    return RuntimeStatistics:GetStatistics()
+end
+
+-- DataModel / Services
 function Game:GetService(name)
     return Services.GetService(name)
 end
 
-function Game:IsLoaded()
-    return true
+function Game:FindService(name)
+    return Services.FindService(name)
 end
 
+function Game:GetChildren()
+    return DataModel:GetChildren()
+end
+
+function Game:GetDescendants()
+    return DataModel:GetDescendants()
+end
+
+function Game:FindFirstChild(name, recursive)
+    return DataModel:FindFirstChild(name, recursive)
+end
+
+function Game:GetFullName()
+    return "game"
+end
+
+function Game:IsLoaded()
+    return DataModel:IsLoaded()
+end
+
+function Game:GetServiceCount()
+    return DataModel:GetServiceCount()
+end
+
+function Game:GetServiceNames()
+    return DataModel:GetServiceNames()
+end
+
+-- Runtime Lifecycle
+function Game:Initialize()
+    return RuntimeManager:Initialize()
+end
+
+function Game:Start()
+    return RuntimeManager:Start()
+end
+
+function Game:Stop()
+    return RuntimeManager:Stop()
+end
+
+function Game:Restart()
+    return RuntimeManager:Restart()
+end
+
+function Game:Shutdown()
+    return RuntimeManager:Shutdown()
+end
+
+function Game:GetRuntimeStatus()
+    return RuntimeManager:GetStatus()
+end
+
+-- Main Runtime Step
 function Game:Step(deltaTime)
     deltaTime = deltaTime or 0
 
@@ -223,41 +309,20 @@ function Game:Step(deltaTime)
     local collisionResult = CollisionService:Step()
     RuntimeStatistics:EndMeasure(collisionTimer)
 
+    RuntimeStatistics:Increment("Frames")
+    RuntimeStatistics:Increment("SchedulerSteps")
+    RuntimeStatistics:Increment("PhysicsSteps")
+    RuntimeStatistics:Increment("CollisionSteps")
+
+    RuntimeStatistics:Record("FrameDeltaTime", deltaTime)
+
     RuntimeStatistics:EndMeasure(totalTimer)
 
     return {
         Scheduler = schedulerResult,
         Physics = physicsResult,
-        Collision = collisionResult,
+        Collisions = collisionResult,
     }
-end
-
-function Game:Start()
-    return RuntimeManager:Start()
-end
-
-function Game:Stop()
-    return RuntimeManager:Stop()
-end
-
-function Game:Initialize()
-    return RuntimeManager:Initialize()
-end
-
-function Game:Shutdown()
-    return RuntimeManager:Shutdown()
-end
-
-function Game:GetRuntimeStatus()
-    return RuntimeManager:GetStatus()
-end
-
-function Game:GetStatistics()
-    return RuntimeStatistics:GetStatistics()
-end
-
-function Game:GetFullName()
-    return "game"
 end
 
 return Game
