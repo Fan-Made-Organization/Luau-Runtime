@@ -72,6 +72,24 @@ function CollectionService:HasTag(instance, tag)
         and self._tags[tag][instance] == true
 end
 
+-- Returns every tag assigned to an Instance.
+function CollectionService:GetTags(instance)
+    validateInstance(instance)
+
+    local result = {}
+
+    for tag, taggedInstances in pairs(self._tags) do
+        if taggedInstances[instance] then
+            table.insert(result, tag)
+        end
+    end
+
+    table.sort(result)
+
+    return result
+end
+
+-- Returns every Instance carrying a particular tag.
 function CollectionService:GetTagged(tag)
     validateTag(tag)
 
