@@ -15,6 +15,7 @@ local RuntimeManager = require("./runtime_manager")
 local InstanceExtensions = require("./instance_extensions")
 local RuntimeEnvironment = require("./runtime_environment")
 local ErrorHandler = require("./error_handler")
+local ScriptSandbox = require("./script_sandbox")
 
 local Game = {}
 
@@ -60,6 +61,7 @@ Game.RuntimeEnvironment = RuntimeEnvironment
 Game.Environment = RuntimeEnvironment.GetDefault()
 
 Game.ErrorHandler = ErrorHandler
+Game.ScriptSandbox = ScriptSandbox
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -112,6 +114,33 @@ end
 
 function Game:GetGlobals(includeParent)
     return self.Environment:GetGlobals(includeParent)
+end
+
+function Game:CreateSandbox(name, options)
+    options = options or {}
+
+    options.Game = self
+    options.Workspace = Workspace
+    options.Task = Task
+    options.Instance = InstanceModule
+
+    return ScriptSandbox.Create(name, options)
+end
+
+function Game:GetSandbox(id)
+    return ScriptSandbox.Get(id)
+end
+
+function Game:GetSandboxes()
+    return ScriptSandbox.GetAll()
+end
+
+function Game:GetSandboxCount()
+    return ScriptSandbox.GetCount()
+end
+
+function Game:DestroyAllSandboxes()
+    return ScriptSandbox.DestroyAll()
 end
 
 function Game:ReportError(message, options)
