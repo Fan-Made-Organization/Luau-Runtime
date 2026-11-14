@@ -18,11 +18,20 @@ local ErrorHandler = require("./error_handler")
 local ScriptSandbox = require("./script_sandbox")
 local RuntimeStatistics = require("./runtime_statistics")
 
+if type(BuiltinServices) ~= "table" then
+    error(
+        "BuiltinServices debe devolver una tabla. Tipo recibido: "
+        .. type(BuiltinServices)
+    )
+end
+
 local Game = {}
 
+-- Workspace
 Services.Register("Workspace", Workspace)
 Workspace.Parent = DataModel
 
+-- Servicios integrados
 for name, service in pairs(BuiltinServices) do
     Services.Register(name, service)
     Scheduler:Register(name, service)
@@ -35,6 +44,7 @@ end
 Scheduler:Register("Workspace", Workspace)
 Scheduler:Register("Task", Task)
 
+-- Runtime Manager
 RuntimeManager:Configure({
     Scheduler = Scheduler,
     Physics = Physics,
@@ -44,6 +54,7 @@ RuntimeManager:Configure({
     Workspace = Workspace,
 })
 
+-- Sistemas principales
 Game.Instance = InstanceModule
 Game.InstanceExtensions = InstanceExtensions
 
@@ -65,6 +76,7 @@ Game.ErrorHandler = ErrorHandler
 Game.ScriptSandbox = ScriptSandbox
 Game.RuntimeStatistics = RuntimeStatistics
 
+-- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
 
@@ -74,6 +86,7 @@ Game.BindableFunction = BuiltinServices.BindableFunction
 Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
 
+-- Proveedores de estadísticas
 RuntimeStatistics:RegisterProvider("RuntimeManager", function()
     return RuntimeManager:GetStatistics()
 end)
@@ -102,10 +115,12 @@ RuntimeStatistics:RegisterProvider("ObjectRegistry", function()
     return ObjectRegistry:GetStatistics()
 end)
 
+-- ValueObjects
 function Game:CreateValue(className, initialValue)
     return ValueObjects.new(className, initialValue)
 end
 
+-- Object Registry
 function Game:RegisterObject(object)
     return ObjectRegistry:Register(object)
 end
@@ -118,6 +133,7 @@ function Game:GetObjectId(object)
     return ObjectRegistry:GetId(object)
 end
 
+-- Instance Extensions
 function Game:GetInstanceInformation(object)
     return InstanceExtensions.GetInformation(object)
 end
@@ -126,6 +142,7 @@ function Game:FindInstanceByPath(object, path)
     return InstanceExtensions.FindByPath(object, path)
 end
 
+-- Runtime Environment
 function Game:CreateEnvironment(name, overrides)
     return self.Environment:CreateEnvironment(name, overrides)
 end
@@ -146,6 +163,7 @@ function Game:GetGlobals(includeParent)
     return self.Environment:GetGlobals(includeParent)
 end
 
+-- Script Sandbox
 function Game:CreateSandbox(name, options)
     options = options or {}
 
@@ -173,6 +191,7 @@ function Game:DestroyAllSandboxes()
     return ScriptSandbox.DestroyAll()
 end
 
+-- Error Handler
 function Game:ReportError(message, options)
     return ErrorHandler:Report(message, options)
 end
@@ -189,6 +208,7 @@ function Game:GetErrorStatistics()
     return ErrorHandler:GetStatistics()
 end
 
+-- Runtime Statistics
 function Game:IncrementStatistic(name, amount)
     return RuntimeStatistics:Increment(name, amount)
 end
@@ -209,6 +229,7 @@ function Game:GetRuntimeStatistics()
     return RuntimeStatistics:GetStatistics()
 end
 
+-- DataModel / Services
 function Game:GetService(name)
     return Services.GetService(name)
 end
@@ -245,6 +266,7 @@ function Game:GetServiceNames()
     return DataModel:GetServiceNames()
 end
 
+-- Runtime Lifecycle
 function Game:Initialize()
     return RuntimeManager:Initialize()
 end
@@ -269,7 +291,10 @@ function Game:GetRuntimeStatus()
     return RuntimeManager:GetStatus()
 end
 
+-- Main Runtime Step
 function Game:Step(deltaTime)
+    deltaTime = deltaTime or 0
+
     local totalTimer = RuntimeStatistics:BeginMeasure("Game.Step")
 
     local schedulerTimer = RuntimeStatistics:BeginMeasure("Scheduler.Step")
@@ -289,7 +314,7 @@ function Game:Step(deltaTime)
     RuntimeStatistics:Increment("PhysicsSteps")
     RuntimeStatistics:Increment("CollisionSteps")
 
-    RuntimeStatistics:Record("FrameDeltaTime", deltaTime or 0)
+    RuntimeStatistics:Record("FrameDeltaTime", deltaTime)
 
     RuntimeStatistics:EndMeasure(totalTimer)
 
