@@ -389,5 +389,3 @@ function Physics:Reset()
 end
 
 return Physics
-
-return Physics
