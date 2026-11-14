@@ -68,9 +68,7 @@ local function invokeCallback(self, callback, ...)
         error("RemoteFunction callback is not assigned")
     end
 
-    local results = table.pack(
-        pcall(callback, ...)
-    )
+    local results = table.pack(pcall(callback, ...))
 
     if not results[1] then
         self._errors = self._errors + 1
@@ -101,10 +99,18 @@ function Methods:InvokeServer(...)
 
     self._serverInvocations = self._serverInvocations + 1
 
+    if self._localPlayer ~= nil then
+        return invokeCallback(
+            self,
+            self._serverCallback,
+            self._localPlayer,
+            ...
+        )
+    end
+
     return invokeCallback(
         self,
         self._serverCallback,
-        self._localPlayer,
         ...
     )
 end
