@@ -2,11 +2,13 @@ local ModuleLoader = {
     _cache = {},
     _loading = {},
     _loadStack = {},
+
     _stats = {
         Loads = 0,
         CacheHits = 0,
         Errors = 0,
         CircularDependencies = 0,
+        Unloads = 0,
     },
 }
 
@@ -15,9 +17,33 @@ local function isModule(instance)
         and instance.ClassName == "ModuleScript"
 end
 
+local function isDestroyed(instance)
+    if instance._destroyed == true
+        or instance.Destroyed == true then
+        return true
+    end
+
+    if type(instance.IsDestroyed) == "function" then
+        local success, result = pcall(instance.IsDestroyed, instance)
+
+        if success and result == true then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function getModuleName(moduleScript)
     if type(moduleScript.GetFullName) == "function" then
-        return moduleScript:GetFullName()
+        local success, result = pcall(
+            moduleScript.GetFullName,
+            moduleScript
+        )
+
+        if success and type(result) == "string" then
+            return result
+        end
     end
 
     return tostring(moduleScript.Name or "UnknownModule")
@@ -59,12 +85,23 @@ local function createCircularError(moduleScript)
         .. table.concat(chain, " -> ")
 end
 
+local function finishLoading(loader, moduleScript)
+    loader._loading[moduleScript] = nil
+
+    for i = #loader._loadStack, 1, -1 do
+        if loader._loadStack[i].Module == moduleScript then
+            table.remove(loader._loadStack, i)
+            break
+        end
+    end
+end
+
 function ModuleLoader:Require(moduleScript)
     if not isModule(moduleScript) then
         error("Require expects a ModuleScript")
     end
 
-    if moduleScript.Destroyed then
+    if isDestroyed(moduleScript) then
         error("Cannot require a destroyed ModuleScript")
     end
 
@@ -92,17 +129,15 @@ function ModuleLoader:Require(moduleScript)
 
     local moduleName = getModuleName(moduleScript)
 
-    table.insert(self._loadStack, moduleName)
-
-    local function finish()
-        self._loading[moduleScript] = nil
-        table.remove(self._loadStack)
-    end
+    table.insert(self._loadStack, {
+        Module = moduleScript,
+        Name = moduleName,
+    })
 
     local chunk, compileError = compile(moduleScript)
 
     if not chunk then
-        finish()
+        finishLoading(self, moduleScript)
 
         self._stats.Errors = self._stats.Errors + 1
 
@@ -112,7 +147,7 @@ function ModuleLoader:Require(moduleScript)
     local success, result = pcall(chunk)
 
     if not success then
-        finish()
+        finishLoading(self, moduleScript)
 
         self._stats.Errors = self._stats.Errors + 1
 
@@ -120,12 +155,23 @@ function ModuleLoader:Require(moduleScript)
     end
 
     if result == nil then
-        finish()
+        finishLoading(self, moduleScript)
 
         self._stats.Errors = self._stats.Errors + 1
 
         error(
             "ModuleScript must return a value: "
+            .. moduleName
+        )
+    end
+
+    if isDestroyed(moduleScript) then
+        finishLoading(self, moduleScript)
+
+        self._stats.Errors = self._stats.Errors + 1
+
+        error(
+            "ModuleScript was destroyed while loading: "
             .. moduleName
         )
     end
@@ -136,7 +182,7 @@ function ModuleLoader:Require(moduleScript)
         LoadedAt = os.clock(),
     }
 
-    finish()
+    finishLoading(self, moduleScript)
 
     self._stats.Loads = self._stats.Loads + 1
 
@@ -152,17 +198,22 @@ function ModuleLoader:Unload(moduleScript)
         return false
     end
 
+    if self._loading[moduleScript] then
+        return false
+    end
+
     local existed = self._cache[moduleScript] ~= nil
 
-    self._cache[moduleScript] = nil
+    if existed then
+        self._cache[moduleScript] = nil
+        self._stats.Unloads = self._stats.Unloads + 1
+    end
 
     return existed
 end
 
 function ModuleLoader:ClearCache()
     self._cache = {}
-    self._loading = {}
-    self._loadStack = {}
 end
 
 function ModuleLoader:GetLoadedModules()
@@ -199,6 +250,7 @@ function ModuleLoader:GetStatistics()
         CacheHits = self._stats.CacheHits,
         Errors = self._stats.Errors,
         CircularDependencies = self._stats.CircularDependencies,
+        Unloads = self._stats.Unloads,
         LoadedModules = self:GetLoadedCount(),
     }
 end
@@ -209,6 +261,7 @@ function ModuleLoader:ResetStatistics()
         CacheHits = 0,
         Errors = 0,
         CircularDependencies = 0,
+        Unloads = 0,
     }
 end
 
