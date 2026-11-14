@@ -8,6 +8,7 @@ local Task = require("./task")
 local ValueObjects = require("./value_objects")
 local ObjectRegistry = require("./object_registry")
 local Physics = require("./physics_service")
+local CollisionService = require("./collision_service")
 
 local Game = {}
 
@@ -34,6 +35,7 @@ Game.Task = Task
 Game.ValueObjects = ValueObjects
 Game.ObjectRegistry = ObjectRegistry
 Game.Physics = Physics
+Game.CollisionService = CollisionService
 
 Game.ScriptService = BuiltinServices.ScriptService
 Game.ScriptLifecycle = BuiltinServices.ScriptLifecycle
@@ -107,10 +109,12 @@ end
 function Game:Step(deltaTime)
     local schedulerResult = Scheduler:Step(deltaTime)
     local physicsResult = Physics:Step(deltaTime)
+    local collisionResult = CollisionService:Step()
 
     return {
         Scheduler = schedulerResult,
         Physics = physicsResult,
+        Collisions = collisionResult,
     }
 end
 
