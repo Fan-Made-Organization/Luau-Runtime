@@ -100,9 +100,143 @@ local function callSystem(system, methodName, ...)
     local args = table.pack(...)
 
     return safeCall(function()
-        method(system, table.unpack(args, 1, args.n))
+        return method(system, table.unpack(args, 1, args.n))
     end)
 end
+
+--------------------------------------------------------
+-- INTERNAL CONFIGURATION
+--------------------------------------------------------
+
+local function applyConfigurationInternal()
+    local config = RuntimeManager._configuration
+    local systems = RuntimeManager._systems
+
+    local success, err
+
+    success, err = callSystem(
+        systems.Physics,
+        "SetEnabled",
+        config.PhysicsEnabled
+    )
+
+    if not success then
+        return false, err
+    end
+
+    success, err = callSystem(
+        systems.CollisionService,
+        "SetEnabled",
+        config.CollisionEnabled
+    )
+
+    if not success then
+        return false, err
+    end
+
+    local diagnostics = systems.Diagnostics
+
+    success, err = callSystem(
+        diagnostics,
+        "SetEnabled",
+        config.DiagnosticsEnabled
+    )
+
+    if not success then
+        return false, err
+    end
+
+    success, err = callSystem(
+        diagnostics,
+        "SetMaximumLogs",
+        config.MaximumLogs
+    )
+
+    if not success then
+        return false, err
+    end
+
+    return true
+end
+
+--------------------------------------------------------
+-- INTERNAL LIFECYCLE
+--------------------------------------------------------
+
+local function initializeInternal()
+    if RuntimeManager._initialized
+        and RuntimeManager.State ~= "SHUTDOWN"
+    then
+        return true
+    end
+
+    local success, err = applyConfigurationInternal()
+
+    if not success then
+        error(err, 0)
+    end
+
+    RuntimeManager._initialized = true
+    RuntimeManager.State = "READY"
+
+    RuntimeManager._statistics.Initializations += 1
+
+    return true
+end
+
+local function startInternal()
+    if RuntimeManager.State == "RUNNING" then
+        return true
+    end
+
+    if RuntimeManager.State == "SHUTDOWN"
+        or not RuntimeManager._initialized
+    then
+        initializeInternal()
+    end
+
+    local scheduler = RuntimeManager._systems.Scheduler
+
+    local success, err = callSystem(
+        scheduler,
+        "Start"
+    )
+
+    if not success then
+        error(err, 0)
+    end
+
+    RuntimeManager.State = "RUNNING"
+    RuntimeManager._statistics.Starts += 1
+
+    return true
+end
+
+local function stopInternal()
+    if RuntimeManager.State ~= "RUNNING" then
+        return true
+    end
+
+    local scheduler = RuntimeManager._systems.Scheduler
+
+    local success, err = callSystem(
+        scheduler,
+        "Stop"
+    )
+
+    if not success then
+        error(err, 0)
+    end
+
+    RuntimeManager.State = "STOPPED"
+    RuntimeManager._statistics.Stops += 1
+
+    return true
+end
+
+--------------------------------------------------------
+-- CONFIGURATION
+--------------------------------------------------------
 
 function RuntimeManager:Configure(systems)
     if type(systems) ~= "table" then
@@ -120,7 +254,7 @@ function RuntimeManager:Configure(systems)
     self._systems = systems
 
     if self._initialized then
-        local success, err = self:ApplyConfiguration()
+        local success, err = applyConfigurationInternal()
 
         if not success then
             return false, err
@@ -162,11 +296,12 @@ function RuntimeManager:SetConfiguration(name, value)
     self._configuration[name] = value
 
     if self._initialized then
-        local success, err = self:ApplyConfiguration()
+        local success, err = applyConfigurationInternal()
 
         if not success then
             self._configuration[name] = previousValue
-            self:ApplyConfiguration()
+
+            applyConfigurationInternal()
 
             return false, err
         end
@@ -188,49 +323,12 @@ function RuntimeManager:GetConfiguration()
 end
 
 function RuntimeManager:ApplyConfiguration()
-    local config = self._configuration
-    local systems = self._systems
+    if self._transitioning then
+        return false, "Runtime transition already in progress"
+    end
 
     return runTransition(function()
-        local success, err
-
-        success, err = callSystem(
-            systems.Physics,
-            "SetEnabled",
-            config.PhysicsEnabled
-        )
-
-        if not success then
-            error(err, 0)
-        end
-
-        success, err = callSystem(
-            systems.CollisionService,
-            "SetEnabled",
-            config.CollisionEnabled
-        )
-
-        if not success then
-            error(err, 0)
-        end
-
-        local diagnostics = systems.Diagnostics
-
-        success, err = callSystem(
-            diagnostics,
-            "SetEnabled",
-            config.DiagnosticsEnabled
-        )
-
-        if not success then
-            error(err, 0)
-        end
-
-        success, err = callSystem(
-            diagnostics,
-            "SetMaximumLogs",
-            config.MaximumLogs
-        )
+        local success, err = applyConfigurationInternal()
 
         if not success then
             error(err, 0)
@@ -239,6 +337,10 @@ function RuntimeManager:ApplyConfiguration()
         return true
     end)
 end
+
+--------------------------------------------------------
+-- INITIALIZATION
+--------------------------------------------------------
 
 function RuntimeManager:Initialize()
     if self._initialized and self.State ~= "SHUTDOWN" then
@@ -250,18 +352,7 @@ function RuntimeManager:Initialize()
     end
 
     local success, err = runTransition(function()
-        local applied, applyError = self:ApplyConfiguration()
-
-        if not applied then
-            error(applyError, 0)
-        end
-
-        self._initialized = true
-        self.State = "READY"
-
-        self._statistics.Initializations += 1
-
-        return true
+        return initializeInternal()
     end)
 
     if not success then
@@ -276,6 +367,10 @@ function RuntimeManager:Initialize()
     return true
 end
 
+--------------------------------------------------------
+-- START
+--------------------------------------------------------
+
 function RuntimeManager:Start()
     if self.State == "RUNNING" then
         return true
@@ -285,33 +380,12 @@ function RuntimeManager:Start()
         return false, "Runtime transition already in progress"
     end
 
-    if self.State == "SHUTDOWN" or not self._initialized then
-        local success, err = self:Initialize()
-
-        if not success then
-            return false, err
-        end
-    end
-
     local success, err = runTransition(function()
-        local scheduler = self._systems.Scheduler
-
-        local started, startError = callSystem(
-            scheduler,
-            "Start"
-        )
-
-        if not started then
-            error(startError, 0)
-        end
-
-        self.State = "RUNNING"
-        self._statistics.Starts += 1
-
-        return true
+        return startInternal()
     end)
 
     if not success then
+        self.State = "STOPPED"
         return false, err
     end
 
@@ -319,6 +393,10 @@ function RuntimeManager:Start()
 
     return true
 end
+
+--------------------------------------------------------
+-- STOP
+--------------------------------------------------------
 
 function RuntimeManager:Stop()
     if self.State ~= "RUNNING" then
@@ -330,21 +408,7 @@ function RuntimeManager:Stop()
     end
 
     local success, err = runTransition(function()
-        local scheduler = self._systems.Scheduler
-
-        local stopped, stopError = callSystem(
-            scheduler,
-            "Stop"
-        )
-
-        if not stopped then
-            error(stopError, 0)
-        end
-
-        self.State = "STOPPED"
-        self._statistics.Stops += 1
-
-        return true
+        return stopInternal()
     end)
 
     if not success then
@@ -355,6 +419,10 @@ function RuntimeManager:Stop()
 
     return true
 end
+
+--------------------------------------------------------
+-- RESTART
+--------------------------------------------------------
 
 function RuntimeManager:Restart()
     if self._transitioning then
@@ -376,11 +444,7 @@ function RuntimeManager:Restart()
         self.State = "STOPPED"
         self._initialized = false
 
-        local initialized, initializeError = self:Initialize()
-
-        if not initialized then
-            error(initializeError, 0)
-        end
+        initializeInternal()
 
         local started, startError = callSystem(
             scheduler,
@@ -410,6 +474,10 @@ function RuntimeManager:Restart()
 
     return true
 end
+
+--------------------------------------------------------
+-- SHUTDOWN
+--------------------------------------------------------
 
 function RuntimeManager:Shutdown()
     if self.State == "SHUTDOWN" then
@@ -449,6 +517,10 @@ function RuntimeManager:Shutdown()
     return true
 end
 
+--------------------------------------------------------
+-- STATE
+--------------------------------------------------------
+
 function RuntimeManager:GetState()
     return self.State
 end
@@ -464,6 +536,10 @@ end
 function RuntimeManager:IsShutdown()
     return self.State == "SHUTDOWN"
 end
+
+--------------------------------------------------------
+-- SYSTEMS
+--------------------------------------------------------
 
 function RuntimeManager:GetSystem(name)
     return self._systems[name]
@@ -482,6 +558,10 @@ function RuntimeManager:GetSystemStatus()
     return result
 end
 
+--------------------------------------------------------
+-- ERRORS
+--------------------------------------------------------
+
 function RuntimeManager:GetLastError()
     return self._lastError
 end
@@ -490,6 +570,10 @@ function RuntimeManager:ClearLastError()
     self._lastError = nil
     return true
 end
+
+--------------------------------------------------------
+-- STATISTICS
+--------------------------------------------------------
 
 function RuntimeManager:GetStatistics()
     return {
