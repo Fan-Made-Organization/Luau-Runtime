@@ -3,6 +3,8 @@ local RuntimeManager = {
 
     _systems = {},
     _initialized = false,
+    _transitioning = false,
+    _lastError = nil,
 
     _configuration = {
         PhysicsEnabled = true,
@@ -18,30 +20,86 @@ local RuntimeManager = {
         Restarts = 0,
         Shutdowns = 0,
         Errors = 0,
+        ConfigurationUpdates = 0,
     },
 }
 
+local function isFiniteNumber(value)
+    return type(value) == "number"
+        and value == value
+        and value ~= math.huge
+        and value ~= -math.huge
+end
+
+local function reportError(message)
+    RuntimeManager._lastError = tostring(message)
+    RuntimeManager._statistics.Errors += 1
+
+    local diagnostics = RuntimeManager._systems.Diagnostics
+
+    if diagnostics and type(diagnostics.Error) == "function" then
+        pcall(function()
+            diagnostics:Error(
+                "RuntimeManager",
+                RuntimeManager._lastError
+            )
+        end)
+    end
+end
+
+local function logInfo(message)
+    local diagnostics = RuntimeManager._systems.Diagnostics
+
+    if diagnostics and type(diagnostics.Info) == "function" then
+        pcall(function()
+            diagnostics:Info("RuntimeManager", message)
+        end)
+    end
+end
+
 local function safeCall(callback)
+    if type(callback) ~= "function" then
+        return false, "Expected a function"
+    end
+
     local results = table.pack(pcall(callback))
 
     if not results[1] then
-        RuntimeManager._statistics.Errors += 1
-
-        local diagnostics = RuntimeManager._systems.Diagnostics
-
-        if diagnostics then
-            pcall(function()
-                diagnostics:Error(
-                    "RuntimeManager",
-                    tostring(results[2])
-                )
-            end)
-        end
-
+        reportError(results[2])
         return false, results[2]
     end
 
     return true, table.unpack(results, 2, results.n)
+end
+
+local function runTransition(callback)
+    if RuntimeManager._transitioning then
+        return false, "Runtime transition already in progress"
+    end
+
+    RuntimeManager._transitioning = true
+
+    local results = table.pack(safeCall(callback))
+
+    RuntimeManager._transitioning = false
+
+    return table.unpack(results, 1, results.n)
+end
+
+local function callSystem(system, methodName, ...)
+    if not system then
+        return true
+    end
+
+    local method = system[methodName]
+
+    if type(method) ~= "function" then
+        return true
+    end
+
+    return safeCall(function()
+        method(system, ...)
+    end)
 end
 
 function RuntimeManager:Configure(systems)
@@ -53,7 +111,19 @@ function RuntimeManager:Configure(systems)
         error("Cannot configure a running runtime", 2)
     end
 
+    if self._transitioning then
+        error("Cannot configure during a runtime transition", 2)
+    end
+
     self._systems = systems
+
+    if self._initialized then
+        local success, err = self:ApplyConfiguration()
+
+        if not success then
+            return false, err
+        end
+    end
 
     return true
 end
@@ -66,8 +136,12 @@ function RuntimeManager:SetConfiguration(name, value)
         )
     end
 
+    if self._transitioning then
+        return false, "Cannot change configuration during a transition"
+    end
+
     if name == "MaximumLogs" then
-        if type(value) ~= "number"
+        if not isFiniteNumber(value)
             or value < 1
             or value % 1 ~= 0
         then
@@ -77,11 +151,27 @@ function RuntimeManager:SetConfiguration(name, value)
         error(name .. " must be a boolean", 2)
     end
 
+    local previousValue = self._configuration[name]
+
+    if previousValue == value then
+        return true
+    end
+
     self._configuration[name] = value
 
     if self._initialized then
-        self:ApplyConfiguration()
+        local success, err = self:ApplyConfiguration()
+
+        if not success then
+            self._configuration[name] = previousValue
+
+            self:ApplyConfiguration()
+
+            return false, err
+        end
     end
+
+    self._statistics.ConfigurationUpdates += 1
 
     return true
 end
@@ -100,60 +190,87 @@ function RuntimeManager:ApplyConfiguration()
     local config = self._configuration
     local systems = self._systems
 
-    if systems.Physics then
-        systems.Physics:SetEnabled(config.PhysicsEnabled)
-    end
+    return runTransition(function()
+        local success, err
 
-    if systems.CollisionService then
-        systems.CollisionService:SetEnabled(
+        success, err = callSystem(
+            systems.Physics,
+            "SetEnabled",
+            config.PhysicsEnabled
+        )
+
+        if not success then
+            error(err, 0)
+        end
+
+        success, err = callSystem(
+            systems.CollisionService,
+            "SetEnabled",
             config.CollisionEnabled
         )
-    end
 
-    if systems.Diagnostics then
-        systems.Diagnostics:SetEnabled(
+        if not success then
+            error(err, 0)
+        end
+
+        local diagnostics = systems.Diagnostics
+
+        success, err = callSystem(
+            diagnostics,
+            "SetEnabled",
             config.DiagnosticsEnabled
         )
 
-        systems.Diagnostics:SetMaximumLogs(
+        if not success then
+            error(err, 0)
+        end
+
+        success, err = callSystem(
+            diagnostics,
+            "SetMaximumLogs",
             config.MaximumLogs
         )
-    end
 
-    return true
+        if not success then
+            error(err, 0)
+        end
+
+        return true
+    end)
 end
 
 function RuntimeManager:Initialize()
-    if self._initialized
-        and self.State ~= "SHUTDOWN"
-    then
+    if self._initialized and self.State ~= "SHUTDOWN" then
         return true
     end
 
-    local success, err = safeCall(function()
-        self:ApplyConfiguration()
+    if self._transitioning then
+        return false, "Runtime transition already in progress"
+    end
+
+    local success, err = runTransition(function()
+        local applied, applyError = self:ApplyConfiguration()
+
+        if not applied then
+            error(applyError, 0)
+        end
 
         self._initialized = true
         self.State = "READY"
 
         self._statistics.Initializations += 1
+
+        return true
     end)
 
     if not success then
         self.State = "STOPPED"
+        self._initialized = false
+
         return false, err
     end
 
-    local diagnostics = self._systems.Diagnostics
-
-    if diagnostics then
-        pcall(function()
-            diagnostics:Info(
-                "RuntimeManager",
-                "Runtime initialized"
-            )
-        end)
-    end
+    logInfo("Runtime initialized")
 
     return true
 end
@@ -163,9 +280,11 @@ function RuntimeManager:Start()
         return true
     end
 
-    if not self._initialized
-        or self.State == "SHUTDOWN"
-    then
+    if self._transitioning then
+        return false, "Runtime transition already in progress"
+    end
+
+    if self.State == "SHUTDOWN" or not self._initialized then
         local success, err = self:Initialize()
 
         if not success then
@@ -173,31 +292,29 @@ function RuntimeManager:Start()
         end
     end
 
-    local scheduler = self._systems.Scheduler
+    local success, err = runTransition(function()
+        local scheduler = self._systems.Scheduler
 
-    if scheduler then
-        local success, err = safeCall(function()
-            scheduler:Start()
-        end)
+        local started, startError = callSystem(
+            scheduler,
+            "Start"
+        )
 
-        if not success then
-            return false, err
+        if not started then
+            error(startError, 0)
         end
+
+        self.State = "RUNNING"
+        self._statistics.Starts += 1
+
+        return true
+    end)
+
+    if not success then
+        return false, err
     end
 
-    self.State = "RUNNING"
-    self._statistics.Starts += 1
-
-    local diagnostics = self._systems.Diagnostics
-
-    if diagnostics then
-        pcall(function()
-            diagnostics:Info(
-                "RuntimeManager",
-                "Runtime started"
-            )
-        end)
-    end
+    logInfo("Runtime started")
 
     return true
 end
@@ -207,57 +324,90 @@ function RuntimeManager:Stop()
         return true
     end
 
-    local scheduler = self._systems.Scheduler
+    if self._transitioning then
+        return false, "Runtime transition already in progress"
+    end
 
-    if scheduler then
-        local success, err = safeCall(function()
-            scheduler:Stop()
-        end)
+    local success, err = runTransition(function()
+        local scheduler = self._systems.Scheduler
 
-        if not success then
-            return false, err
+        local stopped, stopError = callSystem(
+            scheduler,
+            "Stop"
+        )
+
+        if not stopped then
+            error(stopError, 0)
         end
+
+        self.State = "STOPPED"
+        self._statistics.Stops += 1
+
+        return true
+    end)
+
+    if not success then
+        return false, err
     end
 
-    self.State = "STOPPED"
-    self._statistics.Stops += 1
-
-    local diagnostics = self._systems.Diagnostics
-
-    if diagnostics then
-        pcall(function()
-            diagnostics:Info(
-                "RuntimeManager",
-                "Runtime stopped"
-            )
-        end)
-    end
+    logInfo("Runtime stopped")
 
     return true
 end
 
 function RuntimeManager:Restart()
-    if self.State == "SHUTDOWN" then
+    if self._transitioning then
+        return false, "Runtime transition already in progress"
+    end
+
+    local success, err = runTransition(function()
+        local scheduler = self._systems.Scheduler
+
+        local stopped, stopError = callSystem(
+            scheduler,
+            "Stop"
+        )
+
+        if not stopped then
+            error(stopError, 0)
+        end
+
+        self.State = "STOPPED"
         self._initialized = false
-    end
 
-    local success, err = self:Stop()
+        local initialized, initializeError = self:Initialize()
+
+        if not initialized then
+            error(initializeError, 0)
+        end
+
+        local started, startError = callSystem(
+            scheduler,
+            "Start"
+        )
+
+        if not started then
+            error(startError, 0)
+        end
+
+        self.State = "RUNNING"
+
+        self._statistics.Restarts += 1
+        self._statistics.Starts += 1
+
+        return true
+    end)
 
     if not success then
+        self.State = "STOPPED"
+        self._initialized = false
+
         return false, err
     end
 
-    self._initialized = false
+    logInfo("Runtime restarted")
 
-    success, err = self:Initialize()
-
-    if not success then
-        return false, err
-    end
-
-    self._statistics.Restarts += 1
-
-    return self:Start()
+    return true
 end
 
 function RuntimeManager:Shutdown()
@@ -265,33 +415,35 @@ function RuntimeManager:Shutdown()
         return true
     end
 
-    local scheduler = self._systems.Scheduler
+    if self._transitioning then
+        return false, "Runtime transition already in progress"
+    end
 
-    if scheduler then
-        local success, err = safeCall(function()
-            scheduler:Stop()
-        end)
+    local success, err = runTransition(function()
+        local scheduler = self._systems.Scheduler
 
-        if not success then
-            return false, err
+        local stopped, stopError = callSystem(
+            scheduler,
+            "Stop"
+        )
+
+        if not stopped then
+            error(stopError, 0)
         end
+
+        self.State = "SHUTDOWN"
+        self._initialized = false
+
+        self._statistics.Shutdowns += 1
+
+        return true
+    end)
+
+    if not success then
+        return false, err
     end
 
-    self.State = "SHUTDOWN"
-    self._initialized = false
-
-    self._statistics.Shutdowns += 1
-
-    local diagnostics = self._systems.Diagnostics
-
-    if diagnostics then
-        pcall(function()
-            diagnostics:Info(
-                "RuntimeManager",
-                "Runtime shutdown"
-            )
-        end)
-    end
+    logInfo("Runtime shutdown")
 
     return true
 end
@@ -308,6 +460,14 @@ function RuntimeManager:IsInitialized()
     return self._initialized
 end
 
+function RuntimeManager:IsShutdown()
+    return self.State == "SHUTDOWN"
+end
+
+function RuntimeManager:GetSystem(name)
+    return self._systems[name]
+end
+
 function RuntimeManager:GetSystemStatus()
     local result = {}
 
@@ -321,6 +481,15 @@ function RuntimeManager:GetSystemStatus()
     return result
 end
 
+function RuntimeManager:GetLastError()
+    return self._lastError
+end
+
+function RuntimeManager:ClearLastError()
+    self._lastError = nil
+    return true
+end
+
 function RuntimeManager:GetStatistics()
     return {
         Initializations = self._statistics.Initializations,
@@ -329,7 +498,11 @@ function RuntimeManager:GetStatistics()
         Restarts = self._statistics.Restarts,
         Shutdowns = self._statistics.Shutdowns,
         Errors = self._statistics.Errors,
+        ConfigurationUpdates = self._statistics.ConfigurationUpdates,
+
         State = self.State,
+        Transitioning = self._transitioning,
+        Initialized = self._initialized,
     }
 end
 
@@ -338,11 +511,23 @@ function RuntimeManager:GetStatus()
         State = self.State,
         Initialized = self._initialized,
         Running = self:IsRunning(),
+        Shutdown = self:IsShutdown(),
+        Transitioning = self._transitioning,
+
+        LastError = self._lastError,
 
         Configuration = self:GetConfiguration(),
         Systems = self:GetSystemStatus(),
         Statistics = self:GetStatistics(),
     }
+end
+
+function RuntimeManager:ResetStatistics()
+    for name in pairs(self._statistics) do
+        self._statistics[name] = 0
+    end
+
+    return true
 end
 
 return RuntimeManager
