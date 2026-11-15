@@ -97,8 +97,10 @@ local function callSystem(system, methodName, ...)
         return true
     end
 
+    local args = table.pack(...)
+
     return safeCall(function()
-        method(system, ...)
+        method(system, table.unpack(args, 1, args.n))
     end)
 end
 
@@ -164,7 +166,6 @@ function RuntimeManager:SetConfiguration(name, value)
 
         if not success then
             self._configuration[name] = previousValue
-
             self:ApplyConfiguration()
 
             return false, err
