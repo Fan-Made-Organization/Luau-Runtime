@@ -5,7 +5,7 @@ from config import SCRIPTS_DIR
 def main():
     print("=" * 40)
     print("       LUAU RUNTIME")
-    print("          UPDATE 1.3")
+    print("          UPDATE 2.0")
     print("=" * 40)
 
     interpreter = LuauInterpreter()
