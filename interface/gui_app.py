@@ -198,9 +198,6 @@ class GuiRenderer:
         child_parent = widget.widget() if kind == "ScrollingFrame" else widget
         self.render_children(child_parent, node.get("children", []))
 
-    def debug(self, message: str):
-        print(f"[FMO GUI DEBUG] {message}", flush=True)
-
 
 class SimulatorWindow(QMainWindow):
     def __init__(self, data: dict, script_path: Path):
