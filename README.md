@@ -4,13 +4,31 @@
 
 Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
 
-> **Project status:** UPDATE 1.2 hardening has been merged into `Runtime`. UPDATE 1.3 adds an integrated runtime profiler with bounded timing samples, reports, safe measurement tokens, and callback profiling. GitHub Actions validates Python and the Luau Super Test.
+> **Project status:** UPDATE 2.0 adds seven integrated runtime systems: Memory Manager, Event Manager, Resource Manager, Runtime Debugger, Performance Monitor, Task Queue, and Instance Manager. The expanded Super Test targets 282 automated checks. These new checks must be run locally or by CI before the release is considered verified.
 
 ---
 
 # 🇬🇧 English
 
-## Current development — UPDATE 1.2
+## UPDATE 2.0 — Runtime Systems Expansion
+
+UPDATE 2.0 introduces seven new modules exposed through the shared `Game` object:
+
+| Module | Capabilities |
+|---|---|
+| `MemoryManager` | Logical allocation accounting, byte limits, owners, tags, resizing, snapshots, diffs, top allocations, validation and statistics. This is runtime bookkeeping, not a reading of the Luau VM's actual heap. |
+| `EventManager` | Named event channels, subscriptions, one-shot listeners, priority ordering, safe callback isolation, pause/resume, bounded history and batch publishing. |
+| `ResourceManager` | Resource registration, cleanup callbacks, scopes, ownership transfer, tags, dependencies, deterministic reverse-order scope cleanup and validation. |
+| `RuntimeDebugger` | Breakpoints with conditions and hit limits, watch expressions, bounded traces, value inspection and named snapshots with comparisons. |
+| `PerformanceMonitor` | Bounded numeric samples, timers, callback measurement, metric summaries, performance budgets, marks and snapshot comparisons. |
+| `TaskQueue` | Deferred and delayed callbacks, priority ordering, cancellation, queue limits, pause/resume, bounded history and execution budgets. |
+| `InstanceManager` | Indexed Instance lookup by name/class, tags, groups, metadata, index refresh/rebuild, validation and lifecycle tracking. |
+
+The `Game` facade exposes common entry points, and runtime statistics now include providers for the new managers. The regression suite has been expanded to **282 checks** covering normal behavior, invalid inputs, cleanup, limits, callback errors and edge cases.
+
+**Verification status:** source changes and regression cases have been added to the `Runtime` branch. The new 282-check suite has not yet been executed in this development session; run the commands below and inspect the final report before treating UPDATE 2.0 as passing.
+
+## Previous development — UPDATE 1.2
 
 - Hardened Instance identity validation, parent assignment, hierarchy handling, and mutable-property cloning.
 - Improved Signal connection cleanup and callback dispatch behavior.
@@ -809,4 +827,4 @@ Check the repository for the project's license and usage terms.
 
 **Fan-Made Organization (FMO)**
 
-Luau Runtime — UPDATE 1.3
+Luau Runtime — UPDATE 2.0
