@@ -157,7 +157,7 @@ end
 print("")
 print("========================================================")
 print("             FMO LUAU RUNTIME")
-print("                SUPER TEST 1.2")
+print("                SUPER TEST 1.3")
 print("========================================================")
 print("")
 print("[Runtime] Initializing...")
@@ -1523,10 +1523,128 @@ test("Complete performance report", function()
 end)
 
 --------------------------------------------------------
--- 30. INTEGRATED RUNTIME
+-- 30. RUNTIME PROFILER
 --------------------------------------------------------
 
-section("30. INTEGRATED RUNTIME")
+section("30. RUNTIME PROFILER")
+
+local Profiler = Game.RuntimeProfiler
+local profilerToken
+
+test("RuntimeProfiler exists and is integrated", function()
+    expect(type(Profiler) == "table")
+    expect(type(Game.BeginProfile) == "function")
+    expect(type(Game.EndProfile) == "function")
+    expect(type(Game.Profile) == "function")
+end)
+
+test("Profiler begin and end measurement", function()
+    profilerToken = Game:BeginProfile("FMO_Test_Profile")
+
+    expect(type(profilerToken) == "table")
+    expect(profilerToken.Active)
+
+    local elapsed = Game:EndProfile(profilerToken)
+
+    expect(type(elapsed) == "number")
+    expect(elapsed >= 0)
+    expect(not profilerToken.Active)
+end)
+
+test("Profiler rejects reused tokens", function()
+    local elapsed, message = Game:EndProfile(profilerToken)
+
+    equal(elapsed, nil)
+    expect(type(message) == "string")
+end)
+
+test("Profiler Measure preserves multiple return values", function()
+    local first, second, third = Game:Profile(
+        "FMO_Measure_Returns",
+        function(a, b)
+            return a + b, "FMO", true
+        end,
+        10,
+        15
+    )
+
+    equal(first, 25)
+    equal(second, "FMO")
+    equal(third, true)
+end)
+
+test("Profiler records callback errors and rethrows them", function()
+    local successResult, message = pcall(function()
+        Game:Profile("FMO_Measure_Error", function()
+            error("FMO_PROFILE_EXPECTED_ERROR")
+        end)
+    end)
+
+    expect(not successResult)
+    expect(string.find(tostring(message), "FMO_PROFILE_EXPECTED_ERROR", 1, true) ~= nil)
+    expect(Profiler:GetStatistics().Failed >= 1)
+end)
+
+test("Profiler report contains timing statistics", function()
+    local report = Game:GetProfileReport()
+    local profile = Profiler:GetProfile("FMO_Measure_Returns")
+
+    expect(type(report) == "table")
+    expect(type(profile) == "table")
+    equal(profile.Count, 1)
+    expect(profile.Total >= 0)
+    expect(profile.Average >= 0)
+    expect(profile.Latest >= 0)
+end)
+
+test("Profiler sample limit is enforced", function()
+    Profiler:SetMaximumSamples(2)
+
+    for index = 1, 4 do
+        Game:Profile("FMO_Sample_Limit", function()
+            return index
+        end)
+    end
+
+    local profile = Profiler:GetProfile("FMO_Sample_Limit")
+
+    equal(#profile.Samples, 2)
+    Profiler:SetMaximumSamples(500)
+end)
+
+test("Profiler can be disabled and re-enabled", function()
+    Profiler:SetEnabled(false)
+
+    equal(Game:BeginProfile("FMO_Disabled_Profile"), nil)
+    equal(Game:Profile("FMO_Disabled_Measure", function()
+        return 42
+    end), 42)
+
+    Profiler:SetEnabled(true)
+    expect(Game:BeginProfile("FMO_Reenabled_Profile") ~= nil)
+    local active = Game:BeginProfile("FMO_Reenabled_Cleanup")
+    expect(Game:EndProfile(active) ~= nil)
+end)
+
+test("Profiler clear removes completed profile data", function()
+    local result = Profiler:Clear("FMO_Sample_Limit")
+
+    expect(result)
+    equal(Profiler:GetProfile("FMO_Sample_Limit"), nil)
+end)
+
+test("Profiler statistics provider is registered", function()
+    local providers = Statistics:GetProviderData()
+
+    expect(type(providers.RuntimeProfiler) == "table")
+    expect(providers.RuntimeProfiler.ProfileCount >= 1)
+end)
+
+--------------------------------------------------------
+-- 31. INTEGRATED RUNTIME
+--------------------------------------------------------
+
+section("31. INTEGRATED RUNTIME")
 
 test("Runtime initialization", function()
     local result = Game:Initialize()
@@ -1658,7 +1776,7 @@ else
     print("       SOME TESTS NEED ATTENTION.")
 end
 
-print("       FMO LUAU RUNTIME - SUPER TEST 1.2")
+print("       FMO LUAU RUNTIME - SUPER TEST 1.3")
 line()
 
 print("")
