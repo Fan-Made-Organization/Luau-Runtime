@@ -6,7 +6,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QStatusBar, QWidget
+from PySide6.QtCore import QTimer\nfrom PySide6.QtWidgets import QApplication, QMainWindow, QStatusBar, QWidget
 
 from .gui_renderer import GuiRenderer
 
@@ -31,6 +31,9 @@ class SimulatorWindow(QMainWindow):
     def __init__(self, data: dict, script_path: Path):
         super().__init__()
         self.script_path = script_path
+        self._current_data = data
+        self._refreshing = False
+        self._resize_pending = False
         self.setWindowTitle(
             f"FMO Script GUI Simulator — {data.get('properties', {}).get('Name', script_path.stem)}"
         )
@@ -44,6 +47,8 @@ class SimulatorWindow(QMainWindow):
         self.refresh(data)
 
     def refresh(self, data: dict):
+        self._refreshing = True
+        self._current_data = data
         previous_canvas = self.canvas
         self.canvas = QWidget()
         self.canvas.setObjectName("FmoGuiCanvas")
@@ -86,6 +91,19 @@ class SimulatorWindow(QMainWindow):
         self.canvas.update()
         if previous_canvas is not self.canvas:
             previous_canvas.deleteLater()
+        self._refreshing = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._refreshing or self._resize_pending or not hasattr(self, "_current_data"):
+            return
+        self._resize_pending = True
+        QTimer.singleShot(80, self._rerender_after_resize)
+
+    def _rerender_after_resize(self):
+        self._resize_pending = False
+        if self.isVisible() and not self._refreshing:
+            self.refresh(self._current_data)
 
     def dispatch_event(self, instance_id: str, event_name: str, value):
         try:
