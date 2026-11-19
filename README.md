@@ -4,13 +4,13 @@
 
 FMO Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
 
-> **Project status:** Super Test completed with 149/149 tests passed.
+> **Project status:** UPDATE 1.1 adds signal lifecycle regression coverage and a Linux CI workflow that builds the official Luau CLI and runs the Super Test. The 149/149 result belongs to the 1.0 baseline; the expanded 1.1 suite is awaiting its first CI result.
 
 ---
 
 # 🇬🇧 English
 
-## Features
+## Current development — UPDATE 1.1\n\n- Improved signal cleanup: disconnecting all listeners now releases callback references immediately.\n- Added regression tests for bulk disconnection, repeated cleanup, and disconnecting another listener during signal dispatch.\n- Added GitHub Actions on the `Runtime` branch to compile official Luau and execute the integrated Super Test on Linux.\n\n## Features
 
 - Instance system and hierarchy.
 - Built-in services and service management.
