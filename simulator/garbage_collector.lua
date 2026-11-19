@@ -178,6 +178,10 @@ function GarbageCollector:GetRoots()
     return sortedKeys(self._roots)
 end
 
+function GarbageCollector:GetTrackedIds()
+    return sortedKeys(self._objects)
+end
+
 function GarbageCollector:Collect(options)
     options = options or {}
     if type(options) ~= "table" then
