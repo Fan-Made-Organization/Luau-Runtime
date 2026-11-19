@@ -106,6 +106,37 @@ externally if a script needs it between interactions. The simulator is a local v
 compatibility layer, not a Roblox client or executor, and does not provide complete engine
 compatibility, remote asset loading, automatic file watching, or a persistent Luau VM.
 
+
+## UPDATE 2.3 — Resource Intelligence
+
+The Resource Intelligence layer performs read-only audits across the logical Memory Manager,
+managed Garbage Collector, Resource Manager, and Instance Manager. It produces severity-ranked
+findings, system health summaries, bounded report history, and configurable thresholds.
+
+```lua
+local ok, report = game:ScanResourceHealth()
+
+print(report.Health, report.FindingCount)
+for _, finding in ipairs(report.Findings) do
+    print(finding.Severity, finding.Code, finding.Message)
+end
+
+-- Retrieve the most recent detached report.
+local latest = game:GetResourceHealth()
+```
+
+Available APIs include `Game:ScanResourceHealth(options)`,
+`Game:GetResourceHealth()`, `ResourceIntelligence:GetHistory()`,
+`GetFindings(severity)`, `GetReport(id)`, `SetThresholds(options)`,
+`SetMaximumReports(count)`, `SetEnabled(boolean)`, and `Reset()`.
+
+Findings include memory-limit violations, large logical allocations, long-lived allocations,
+unlinked Runtime-owned allocations, and consistency errors reported by participating managers.
+Reports are diagnostic only: the system never destroys resources, frees allocations, or runs
+garbage collection automatically. Long-lived and unlinked allocations are indicators to inspect,
+not proof of memory leaks. Memory values remain logical accounting and do not measure the Luau VM
+heap. The managed collector only tracks objects explicitly registered through its API.
+
 ## Features
 
 - Instance system and hierarchy.
