@@ -111,7 +111,9 @@ def _widget_style(props, children, fallback):
     if stroke.get("Enabled", True) is False:
         stroke = {}
     border_width = max(0, int(number(stroke.get("Thickness", props.get("BorderSizePixel", 0)))))
-    border_color = qcolor(stroke.get("Color", props.get("BorderColor3")), "#59647a").name()
+    border_shade = qcolor(stroke.get("Color", props.get("BorderColor3")), "#59647a")
+    border_shade.setAlphaF(max(0.0, min(1.0, 1.0 - number(stroke.get("Transparency", 0)))))
+    border_color = border_shade.name(QColor.NameFormat.HexArgb)
     radius = 0
     corner = mods.get("UICorner", {})
     if corner:
@@ -280,7 +282,7 @@ class GuiRenderer:
         if kind == "TextButton":
             widget = QPushButton(str(props.get("Text", "Button")), parent_widget)
         elif kind == "ImageButton":
-            widget = QPushButton(parent_widget)
+            widget = QPushButton("Image", parent_widget)
         elif kind == "TextBox":
             widget = QLineEdit(str(props.get("Text", "")), parent_widget)
             widget.setPlaceholderText(str(props.get("PlaceholderText", "")))
@@ -303,8 +305,14 @@ class GuiRenderer:
                 else Qt.ScrollBarPolicy.ScrollBarAlwaysOff
             )
             content = QWidget()
-            canvas_size = dimensions(props.get("CanvasSize"), (parent_widget.width(), parent_widget.height()),
-                                     (parent_widget.width(), parent_widget.height()))
+            viewport_size = (max(1, parent_widget.width()), max(1, parent_widget.height()))
+            raw_canvas = props.get("CanvasSize")
+            if isinstance(raw_canvas, (list, tuple)) and len(raw_canvas) >= 4:
+                canvas_size = dimensions(raw_canvas, viewport_size, viewport_size)
+                if canvas_size == (1, 1):
+                    canvas_size = viewport_size
+            else:
+                canvas_size = viewport_size
             content.resize(*canvas_size)
             widget.setWidget(content)
         else:
