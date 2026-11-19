@@ -18,6 +18,8 @@ local ErrorHandler = require("./error_handler")
 local ScriptSandbox = require("./script_sandbox")
 local RuntimeStatistics = require("./runtime_statistics")
 local RuntimeProfiler = require("./runtime_profiler")
+local MemoryManager = require("./memory_manager")
+local EventManager = require("./event_manager")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -77,6 +79,8 @@ Game.ErrorHandler = ErrorHandler
 Game.ScriptSandbox = ScriptSandbox
 Game.RuntimeStatistics = RuntimeStatistics
 Game.RuntimeProfiler = RuntimeProfiler
+Game.MemoryManager = MemoryManager
+Game.EventManager = EventManager
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -89,6 +93,14 @@ Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
 
 -- Proveedores de estadísticas
+RuntimeStatistics:RegisterProvider("MemoryManager", function()
+    return MemoryManager:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("EventManager", function()
+    return EventManager:GetStatistics()
+end)
+
 RuntimeStatistics:RegisterProvider("RuntimeProfiler", function()
     return RuntimeProfiler:GetStatistics()
 end)
@@ -212,6 +224,28 @@ end
 
 function Game:GetErrorStatistics()
     return ErrorHandler:GetStatistics()
+end
+
+-- Memory Manager
+function Game:AllocateMemory(id, bytes, options)
+    return MemoryManager:Allocate(id, bytes, options)
+end
+
+function Game:ReleaseMemory(id)
+    return MemoryManager:Release(id)
+end
+
+function Game:GetMemoryStatistics()
+    return MemoryManager:GetStatistics()
+end
+
+-- Event Manager
+function Game:SubscribeEvent(name, callback, options)
+    return EventManager:Subscribe(name, callback, options)
+end
+
+function Game:PublishEvent(name, ...)
+    return EventManager:Publish(name, ...)
 end
 
 -- Runtime Profiler
