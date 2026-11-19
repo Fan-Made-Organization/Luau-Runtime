@@ -50,49 +50,51 @@ class SimulatorWindow(QMainWindow):
     def refresh(self, data: dict):
         self._refreshing = True
         self._current_data = data
-        previous_canvas = self.canvas
-        self.canvas = QWidget()
-        self.canvas.setObjectName("FmoGuiCanvas")
-        self.canvas.setStyleSheet(
-            "QWidget#FmoGuiCanvas { background:#202430; }"
-        )
-        self.setCentralWidget(self.canvas)
-        self.renderer = GuiRenderer(self.canvas, self.dispatch_event)
-
-        root_properties = data.get("properties", {})
-        children = data.get("children", [])
-
-        counts = {}
-        total = 0
-
-        def inspect_tree(nodes):
-            nonlocal total
-            for item in nodes if isinstance(nodes, list) else []:
-                item_props = item.get("properties", {})
-                item_class = item_props.get("ClassName", "<sin-clase>")
-                counts[item_class] = counts.get(item_class, 0) + 1
-                total += 1
-                inspect_tree(item.get("children", []))
-
-        inspect_tree(children)
-        self.renderer.debug(
-            f"SNAPSHOT root={root_properties.get('ClassName', '<sin-clase>')} "
-            f"name={root_properties.get('Name', '<sin-nombre>')} "
-            f"nodes={total} classes={counts} enabled={root_properties.get('Enabled', True)}"
-        )
-        if root_properties.get("Enabled", True) is not False:
-            self.renderer.render_children(self.canvas, children)
-        else:
-            self.renderer.debug("ROOT SKIPPED reason=EnabledFalse")
-
-        self.renderer.debug(
-            f"RESULT created={self.renderer.created} skipped={self.renderer.skipped} "
-            f"canvas={self.canvas.width()}x{self.canvas.height()}"
-        )
-        self.canvas.update()
-        if previous_canvas is not self.canvas:
-            previous_canvas.deleteLater()
-        self._refreshing = False
+        try:
+            previous_canvas = self.canvas
+            self.canvas = QWidget()
+            self.canvas.setObjectName("FmoGuiCanvas")
+            self.canvas.setStyleSheet(
+                "QWidget#FmoGuiCanvas { background:#202430; }"
+            )
+            self.setCentralWidget(self.canvas)
+            self.renderer = GuiRenderer(self.canvas, self.dispatch_event)
+    
+            root_properties = data.get("properties", {})
+            children = data.get("children", [])
+    
+            counts = {}
+            total = 0
+    
+            def inspect_tree(nodes):
+                nonlocal total
+                for item in nodes if isinstance(nodes, list) else []:
+                    item_props = item.get("properties", {})
+                    item_class = item_props.get("ClassName", "<sin-clase>")
+                    counts[item_class] = counts.get(item_class, 0) + 1
+                    total += 1
+                    inspect_tree(item.get("children", []))
+    
+            inspect_tree(children)
+            self.renderer.debug(
+                f"SNAPSHOT root={root_properties.get('ClassName', '<sin-clase>')} "
+                f"name={root_properties.get('Name', '<sin-nombre>')} "
+                f"nodes={total} classes={counts} enabled={root_properties.get('Enabled', True)}"
+            )
+            if root_properties.get("Enabled", True) is not False:
+                self.renderer.render_children(self.canvas, children)
+            else:
+                self.renderer.debug("ROOT SKIPPED reason=EnabledFalse")
+    
+            self.renderer.debug(
+                f"RESULT created={self.renderer.created} skipped={self.renderer.skipped} "
+                f"canvas={self.canvas.width()}x{self.canvas.height()}"
+            )
+            self.canvas.update()
+            if previous_canvas is not self.canvas:
+                previous_canvas.deleteLater()
+        finally:
+            self._refreshing = False
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
