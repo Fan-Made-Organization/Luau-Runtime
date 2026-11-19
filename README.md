@@ -4,7 +4,7 @@
 
 FMO Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
 
-> **Project status:** UPDATE 1.2 hardening branch passes the Linux GitHub Actions build and the expanded Super Test: 158/158 tests passed. These changes are on `hardening/update-1.2-stability` and have not been merged into `Runtime`.
+> **Project status:** UPDATE 1.2 hardening has been merged into `Runtime`. UPDATE 1.3 adds an integrated runtime profiler with bounded timing samples, reports, safe measurement tokens, and callback profiling. GitHub Actions validates Python and the Luau Super Test.
 
 ---
 
@@ -16,7 +16,8 @@ FMO Luau Runtime is a project developed by Fan-Made Organization (FMO). It provi
 - Improved Signal connection cleanup and callback dispatch behavior.
 - Added regression coverage for forged parents, circular hierarchies, deep-copy isolation, and Signal disconnection during dispatch.
 - Added a Linux GitHub Actions workflow that builds the official Luau CLI and runs the integrated Super Test.
-- The expanded Super Test 1.2 passed 158/158 tests in GitHub Actions on the hardening branch.
+- The UPDATE 1.2 hardening suite passed 158/158 tests in GitHub Actions before merging into `Runtime`.
+- UPDATE 1.3 adds `RuntimeProfiler`, integrated with `Game` and runtime statistics. It supports named timing scopes, callback measurements, bounded samples, sorted reports, and profile lifecycle controls.
 
 ## Features
 
@@ -36,7 +37,7 @@ FMO Luau Runtime is a project developed by Fan-Made Organization (FMO). It provi
 - Physics and collision simulation.
 - Runtime diagnostics and error handling.
 - Runtime environment and script sandbox.
-- Runtime statistics.
+- Runtime statistics and an integrated performance profiler.
 - Integrated runtime manager.
 
 **Important:** FMO Luau Runtime is not an official Roblox runtime and does not provide complete Roblox engine compatibility. Some systems are simulations and do not reproduce real Roblox networking, physics, or execution environments.
@@ -286,7 +287,7 @@ Check that:
 - Simulación de física y colisiones.
 - Diagnósticos del runtime y manejo de errores.
 - Entorno de ejecución y sandbox de scripts.
-- Estadísticas del runtime.
+- Estadísticas del runtime y perfilador de rendimiento integrado.
 - Administrador integrado del runtime.
 
 **Importante:** FMO Luau Runtime no es un runtime oficial de Roblox ni ofrece compatibilidad completa con su motor. Algunos sistemas son simulaciones y no reproducen completamente las redes, la física o los entornos de ejecución reales de Roblox.
@@ -536,7 +537,7 @@ Comprueba que:
 - Simulação de física e colisões.
 - Diagnósticos do runtime e tratamento de erros.
 - Ambiente de execução e sandbox de scripts.
-- Estatísticas do runtime.
+- Estatísticas do runtime e perfilador de desempenho integrado.
 - Gerenciador integrado do runtime.
 
 **Importante:** FMO Luau Runtime não é um runtime oficial do Roblox e não oferece compatibilidade completa com sua engine. Alguns sistemas são simulações e não reproduzem completamente as redes, a física ou os ambientes de execução reais do Roblox.
@@ -774,4 +775,4 @@ Check the repository for the project's license and usage terms.
 
 **Fan-Made Organization (FMO)**
 
-FMO Luau Runtime — Version 1.0
+FMO Luau Runtime — UPDATE 1.3
