@@ -1,4 +1,5 @@
 local RuntimeStatistics = {}
+local Snapshot = require("./snapshot")
 
 RuntimeStatistics.Enabled = true
 RuntimeStatistics.MaximumSamples = 500
@@ -16,19 +17,7 @@ RuntimeStatistics._statistics = {
     TotalSnapshots = 0,
 }
 
-local function copyTable(source)
-    local result = {}
-
-    for key, value in pairs(source) do
-        if type(value) == "table" then
-            result[key] = copyTable(value)
-        else
-            result[key] = value
-        end
-    end
-
-    return result
-end
+local copyTable = Snapshot.Clone
 
 local function getClock()
     return os.clock()
@@ -204,7 +193,7 @@ function RuntimeStatistics:GetProviderData()
         local success, data = pcall(callback)
 
         if success then
-            result[name] = data
+            result[name] = Snapshot.Clone(data)
         else
             result[name] = {
                 Error = tostring(data),
