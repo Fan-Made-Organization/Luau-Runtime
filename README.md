@@ -4,7 +4,7 @@
 
 Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
 
-> **Project status:** UPDATE 2.0 adds seven integrated runtime systems: Memory Manager, Event Manager, Resource Manager, Runtime Debugger, Performance Monitor, Task Queue, and Instance Manager. The expanded Super Test targets 280 automated checks. These new checks must be run locally or by CI before the release is considered verified.
+> **Project status:** The `Runtime` branch contains the integrated UPDATE 2.x–3.0 systems, including memory/resource management, dependency analysis, profiling, scheduler observation, health monitoring, diagnostics, benchmarking, and bounded stress scenarios. The Super Test currently contains 370 declared checks. Always use the final test report and CI status as the verification source of truth.
 
 ---
 
@@ -261,6 +261,28 @@ measurements.
 
 **Important:** Luau Runtime is not an official Roblox runtime and does not provide complete Roblox engine compatibility. Some systems are simulations and do not reproduce real Roblox networking, physics, or execution environments.
 
+## Build and test on Linux (Arch Linux)
+
+The project is executed by the official Luau CLI; it is not compiled into a standalone native runtime binary. The helper script builds the official Luau command-line interpreter, validates the Python sources, runs Python unit tests, and executes the complete Luau Super Test.
+
+Install the build dependencies on Arch Linux:
+
+```bash
+sudo pacman -S --needed git cmake make gcc python
+```
+
+From the repository root, run:
+
+```bash
+bash scripts/build_and_test.sh
+```
+
+The script stores the official Luau source in `~/luau` and builds `~/luau/build/luau`. Override paths or build parallelism when needed:
+
+```bash
+LUAU_SOURCE_DIR="$HOME/src/luau" BUILD_JOBS=2 bash scripts/build_and_test.sh
+```
+
 ## Requirements
 
 You need:
@@ -510,6 +532,28 @@ Check that:
 - Administrador integrado del runtime.
 
 **Importante:** Luau Runtime no es un runtime oficial de Roblox ni ofrece compatibilidad completa con su motor. Algunos sistemas son simulaciones y no reproducen completamente las redes, la física o los entornos de ejecución reales de Roblox.
+
+## Compilar el intérprete y probar Luau Runtime en Arch Linux
+
+Luau Runtime se ejecuta mediante el CLI oficial de Luau; este proyecto no se compila como un binario nativo independiente. El siguiente script compila el intérprete oficial, comprueba la sintaxis de Python, ejecuta las pruebas de Python y finalmente corre toda la Super Test de Luau.
+
+Instala las dependencias:
+
+```bash
+sudo pacman -S --needed git cmake make gcc python
+```
+
+Desde la carpeta raíz del repositorio ejecuta:
+
+```bash
+bash scripts/build_and_test.sh
+```
+
+Por defecto, el código fuente oficial se guarda en `~/luau` y el ejecutable queda en `~/luau/build/luau`. Puedes cambiar la ubicación o limitar los trabajos de compilación:
+
+```bash
+LUAU_SOURCE_DIR="$HOME/src/luau" BUILD_JOBS=2 bash scripts/build_and_test.sh
+```
 
 ## Requisitos
 
