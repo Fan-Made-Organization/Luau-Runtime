@@ -3219,6 +3219,169 @@ test("Dependency graph reset clears history and statistics", function()
     equal(DependencyGraph:GetStatistics().Snapshots, 0)
 end)
 
+
+--------------------------------------------------------
+-- 30AE. EVENT PROFILER
+--------------------------------------------------------
+section("30AE. EVENT PROFILER")
+local EventProfiler = Game.EventProfiler
+
+test("Event Profiler records samples and aggregates", function()
+    EventProfiler:Reset()
+    EventProfiler:Record("Signal.Fire", 0.01)
+    EventProfiler:Record("Signal.Fire", 0.03)
+    local report = EventProfiler:GetReport()
+    equal(#report, 1)
+    equal(report[1].Count, 2)
+    expect(report[1].Average > 0)
+end)
+test("Event Profiler measures callback return values", function()
+    local value = EventProfiler:Measure("callback", function(a,b) return a+b end, 4, 5)
+    equal(value, 9)
+end)
+test("Event Profiler records callback failures", function()
+    expect(not pcall(function()
+        EventProfiler:Measure("failure", function() error("expected") end)
+    end))
+    local found = false
+    for _, row in ipairs(EventProfiler:GetReport()) do if row.Name=="failure" then found=row.Failures==1 end end
+    expect(found)
+end)
+test("Event Profiler bounds sample history", function()
+    EventProfiler:SetLimit(2)
+    EventProfiler:Record("a", 0);EventProfiler:Record("b", 0);EventProfiler:Record("c", 0)
+    equal(#EventProfiler:GetSamples(), 2)
+    EventProfiler:Reset()
+end)
+test("Event Profiler validates sample inputs", function()
+    expect(not pcall(function() EventProfiler:Record("", 0) end))
+    expect(not pcall(function() EventProfiler:Record("x", -1) end))
+end)
+
+--------------------------------------------------------
+-- 30AF. SCHEDULER ANALYZER
+--------------------------------------------------------
+section("30AF. SCHEDULER ANALYZER")
+local SchedulerAnalyzer = Game.SchedulerAnalyzer
+
+test("Scheduler Analyzer captures scheduler and queue metrics", function()
+    SchedulerAnalyzer:Reset()
+    local ok, sample = Game:CaptureSchedulerMetrics()
+    expect(ok)
+    expect(type(sample.Scheduler)=="table")
+    expect(type(sample.TaskQueue)=="table")
+end)
+test("Scheduler Analyzer bounds history", function()
+    SchedulerAnalyzer:SetLimit(1)
+    SchedulerAnalyzer:Capture(Game.Scheduler, Game.TaskQueue)
+    SchedulerAnalyzer:Capture(Game.Scheduler, Game.TaskQueue)
+    equal(#SchedulerAnalyzer:GetHistory(), 1)
+    SchedulerAnalyzer:Reset()
+end)
+test("Scheduler Analyzer can be disabled", function()
+    SchedulerAnalyzer:SetEnabled(false)
+    local ok = SchedulerAnalyzer:Capture(Game.Scheduler, Game.TaskQueue)
+    expect(not ok)
+    SchedulerAnalyzer:SetEnabled(true)
+end)
+
+--------------------------------------------------------
+-- 30AG. RUNTIME HEALTH MONITOR
+--------------------------------------------------------
+section("30AG. RUNTIME HEALTH MONITOR")
+local HealthMonitor = Game.RuntimeHealthMonitor
+
+test("Runtime Health Monitor aggregates system checks", function()
+    HealthMonitor:Reset()
+    local ok, report = Game:ScanRuntimeHealth()
+    expect(ok)
+    expect(type(report.Checks)=="table")
+    expect(report.Health=="HEALTHY" or report.Health=="WARNING" or report.Health=="DEGRADED")
+end)
+test("Runtime Health Monitor keeps bounded history", function()
+    HealthMonitor:SetHistoryLimit(1)
+    HealthMonitor:Scan(Game)
+    HealthMonitor:Scan(Game)
+    equal(#HealthMonitor:GetHistory(), 1)
+    HealthMonitor:Reset()
+end)
+test("Runtime Health Monitor validates history limit", function()
+    expect(not pcall(function() HealthMonitor:SetHistoryLimit(0) end))
+end)
+
+--------------------------------------------------------
+-- 30AH. ADVANCED DIAGNOSTICS
+--------------------------------------------------------
+section("30AH. ADVANCED DIAGNOSTICS")
+local AdvancedDiagnostics = Game.AdvancedDiagnostics
+
+test("Advanced Diagnostics records categorized findings", function()
+    AdvancedDiagnostics:Reset()
+    local id = AdvancedDiagnostics:Report("UnitTest", "WARNING", "Example finding", {Value=7})
+    expect(AdvancedDiagnostics:Get(id)~=nil)
+    equal(#AdvancedDiagnostics:GetAll("UnitTest", "WARNING"), 1)
+end)
+test("Advanced Diagnostics rejects invalid severity", function()
+    expect(not pcall(function() AdvancedDiagnostics:Report("x","TRACE","bad") end))
+end)
+test("Advanced Diagnostics bounds records", function()
+    AdvancedDiagnostics:SetLimit(2)
+    AdvancedDiagnostics:Report("x","INFO","1")
+    AdvancedDiagnostics:Report("x","INFO","2")
+    AdvancedDiagnostics:Report("x","INFO","3")
+    equal(#AdvancedDiagnostics:GetAll(),2)
+    AdvancedDiagnostics:Reset()
+end)
+
+--------------------------------------------------------
+-- 30AI. BENCHMARK ENGINE
+--------------------------------------------------------
+section("30AI. BENCHMARK ENGINE")
+local BenchmarkEngine = Game.BenchmarkEngine
+
+test("Benchmark Engine executes requested iterations", function()
+    BenchmarkEngine:Reset()
+    local count=0
+    local ok, result=Game:RunBenchmark("increment",function() count+=1 end,25)
+    expect(ok)
+    equal(count,25)
+    equal(result.Iterations,25)
+    equal(result.Failures,0)
+end)
+test("Benchmark Engine records callback failures without aborting", function()
+    local ok, result=Game:RunBenchmark("mixed",function() error("expected") end,3)
+    expect(ok)
+    equal(result.Failures,3)
+end)
+test("Benchmark Engine enforces iteration cap", function()
+    expect(not pcall(function() BenchmarkEngine:Run("too-many",function() end,100001) end))
+end)
+
+--------------------------------------------------------
+-- 30AJ. STRESS LAB
+--------------------------------------------------------
+section("30AJ. STRESS LAB")
+local StressLab = Game.StressLab
+
+test("Stress Lab completes bounded scenario", function()
+    StressLab:Reset()
+    local count=0
+    local ok, report=Game:RunStressScenario("counter",function(i) count+=i end,10)
+    expect(ok)
+    equal(count,55)
+    equal(report.Completed,10)
+    equal(report.Failures,0)
+end)
+test("Stress Lab isolates scenario errors", function()
+    local ok, report=Game:RunStressScenario("faults",function() error("expected") end,4)
+    expect(ok)
+    equal(report.Failures,4)
+    expect(report.FirstError~=nil)
+end)
+test("Stress Lab validates bounded iteration count", function()
+    expect(not pcall(function() StressLab:Run("invalid",function() end,100001) end))
+end)
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
