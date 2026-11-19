@@ -25,16 +25,17 @@ end
 function Monitor:StartTimer(name)
     if not validName(name) then error("Timer name must be a non-empty string", 2) end
     if not self.Enabled then return nil end
-    local token = { Name = name, StartedAt = os.clock(), Active = true }
-    self._timers[token] = true; self._statistics.TimersStarted += 1
+    local token = { Active = true }
+    self._timers[token] = { Name = name, StartedAt = os.clock() }; self._statistics.TimersStarted += 1
     return token
 end
 function Monitor:StopTimer(token)
     if type(token) ~= "table" or not self._timers[token] or not token.Active then return nil, "Invalid timer token" end
-    local elapsed = math.max(0, os.clock() - token.StartedAt)
+    local timer = self._timers[token]
+    local elapsed = math.max(0, os.clock() - timer.StartedAt)
     token.Active = false; self._timers[token] = nil
     self._statistics.TimersCompleted += 1
-    self:Record(token.Name, elapsed)
+    self:Record(timer.Name, elapsed)
     return elapsed
 end
 function Monitor:Measure(name, callback, ...)
