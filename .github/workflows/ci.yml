@@ -1,4 +1,4 @@
-name: FMO Luau Runtime CI
+name: Luau Runtime CI
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: fmo-luau-ci-${{ github.ref }}
+  group: luau-runtime-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
           cmake --build "$RUNNER_TEMP/luau/build" --target Luau.Repl.CLI --parallel 2
           test -x "$RUNNER_TEMP/luau/build/luau"
 
-      - name: Run FMO Super Test 1.3
+      - name: Run Luau Super Test 1.3
         shell: bash
         run: |
           set -euo pipefail
