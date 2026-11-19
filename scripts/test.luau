@@ -2288,6 +2288,7 @@ test("Task queue enqueue and lookup", function()
 end)
 
 test("Task queue executes ready tasks", function()
+    TaskQueue:Reset()
     local value
     TaskQueue:Enqueue(function() value = 99 end)
     local ran, failed = TaskQueue:RunAll()
