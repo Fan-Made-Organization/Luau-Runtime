@@ -28,5 +28,5 @@ jobs:
           cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau/build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/luau/build" --target Luau.Repl.CLI --parallel 2
 
-      - name: Run FMO Super Test 1.1
+      - name: Run FMO Super Test 1.2
         run: "$RUNNER_TEMP/luau/build/luau" scripts/test.luau
