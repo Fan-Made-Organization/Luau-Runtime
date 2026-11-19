@@ -7,7 +7,7 @@ from config import SCRIPTS_DIR
 def main():
     print("=" * 40)
     print("       FMO LUAU RUNTIME")
-    print("          UPDATE 1.0")
+    print("          UPDATE 1.1")
     print("=" * 40)
 
     interpreter = LuauInterpreter()
