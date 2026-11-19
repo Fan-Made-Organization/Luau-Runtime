@@ -1927,6 +1927,242 @@ test("Event manager reset restores defaults", function()
 end)
 
 
+
+--------------------------------------------------------
+-- 30C. RESOURCE MANAGER
+--------------------------------------------------------
+
+section("30C. RESOURCE MANAGER")
+
+local ResourceManager = Game.ResourceManager
+
+test("ResourceManager is integrated", function()
+    expect(type(ResourceManager) == "table")
+    expect(type(Game.RegisterResource) == "function")
+end)
+
+test("Resource registration and lookup", function()
+    ResourceManager:Reset()
+    local ok, resource = ResourceManager:Register("resource-a", { Value = 7 }, { Tag = "Suite" })
+    expect(ok)
+    equal(resource.Id, "resource-a")
+    expect(ResourceManager:Has("resource-a"))
+    equal(ResourceManager:Get("resource-a").Value.Value, 7)
+end)
+
+test("Resource duplicate registration is rejected", function()
+    local ok = ResourceManager:Register("resource-a", {})
+    expect(not ok)
+end)
+
+test("Resource metadata and tag updates", function()
+    expect(ResourceManager:SetMetadata("resource-a", { Revision = 2 }))
+    expect(ResourceManager:SetTag("resource-a", "Changed"))
+    equal(ResourceManager:FindByTag("Changed")[1].Id, "resource-a")
+end)
+
+test("Resource type counts and listing", function()
+    ResourceManager:Register("resource-b", function() end, { Type = "Callback" })
+    equal(ResourceManager:CountByType("Callback"), 1)
+    equal(#ResourceManager:List(), 2)
+end)
+
+test("Resource scope registration", function()
+    local scope = ResourceManager:CreateScope("test-scope")
+    local ok = ResourceManager:Register("scoped", {}, { Scope = scope })
+    expect(ok)
+    equal(#ResourceManager:GetScopeResources(scope), 1)
+end)
+
+test("Resource transfer between scopes", function()
+    local other = ResourceManager:CreateScope("other")
+    expect(ResourceManager:Transfer("scoped", other))
+    equal(#ResourceManager:GetScopeResources(other), 1)
+end)
+
+test("Resource dependencies are tracked", function()
+    expect(ResourceManager:AddDependency("resource-a", "resource-b"))
+    equal(ResourceManager:GetDependencies("resource-a")[1], "resource-b")
+    equal(ResourceManager:GetDependents("resource-b")[1], "resource-a")
+end)
+
+test("Resource cleanup callback runs once", function()
+    local calls = 0
+    ResourceManager:Register("cleanup", {}, { Cleanup = function() calls += 1 end })
+    expect(ResourceManager:Release("cleanup"))
+    expect(not ResourceManager:Release("cleanup"))
+    equal(calls, 1)
+end)
+
+test("Resource release by tag", function()
+    ResourceManager:Register("tagged-a", {}, { Tag = "bulk" })
+    ResourceManager:Register("tagged-b", {}, { Tag = "bulk" })
+    local released, failed = ResourceManager:ReleaseByTag("bulk")
+    equal(released, 2)
+    equal(failed, 0)
+end)
+
+test("Resource scope releases in reverse order", function()
+    local order = {}
+    local scope = ResourceManager:CreateScope("cleanup-order")
+    ResourceManager:Register("order-1", {}, { Scope = scope, Cleanup = function() order[#order + 1] = 1 end })
+    ResourceManager:Register("order-2", {}, { Scope = scope, Cleanup = function() order[#order + 1] = 2 end })
+    local ok, report = ResourceManager:ReleaseScope(scope)
+    expect(ok)
+    equal(report.Released, 2)
+    equal(order[1], 2)
+    equal(order[2], 1)
+end)
+
+test("Resource manager validates records", function()
+    expect(ResourceManager:Validate())
+end)
+
+test("Resource manager statistics are available", function()
+    local stats = ResourceManager:GetStatistics()
+    expect(stats.Registered >= 5)
+    expect(stats.Released >= 3)
+end)
+
+test("Resource manager clear removes remaining resources", function()
+    ResourceManager:Clear()
+    equal(ResourceManager:Count(), 0)
+end)
+
+test("Resource manager reset restores counters", function()
+    ResourceManager:Reset()
+    equal(ResourceManager:GetStatistics().Registered, 0)
+end)
+
+--------------------------------------------------------
+-- 30D. RUNTIME DEBUGGER
+--------------------------------------------------------
+
+section("30D. RUNTIME DEBUGGER")
+
+local RuntimeDebugger = Game.RuntimeDebugger
+
+test("RuntimeDebugger is integrated", function()
+    expect(type(RuntimeDebugger) == "table")
+end)
+
+test("Debugger breakpoint creation and lookup", function()
+    RuntimeDebugger:Reset()
+    local key = RuntimeDebugger:AddBreakpoint("sample.luau", 12)
+    equal(key, "sample.luau:12")
+    expect(RuntimeDebugger:HasBreakpoint("sample.luau", 12))
+    equal(RuntimeDebugger:GetBreakpoint("sample.luau", 12).Line, 12)
+end)
+
+test("Debugger breakpoint hit tracking", function()
+    expect(RuntimeDebugger:CheckBreakpoint("sample.luau", 12))
+    equal(RuntimeDebugger:GetBreakpoint("sample.luau", 12).HitCount, 1)
+end)
+
+test("Debugger breakpoint conditions", function()
+    RuntimeDebugger:AddBreakpoint("conditional.luau", 3, { Condition = function(context) return context.Ready end })
+    expect(not RuntimeDebugger:CheckBreakpoint("conditional.luau", 3, { Ready = false }))
+    expect(RuntimeDebugger:CheckBreakpoint("conditional.luau", 3, { Ready = true }))
+end)
+
+test("Debugger breakpoint hit limit", function()
+    RuntimeDebugger:AddBreakpoint("limited.luau", 4, { HitLimit = 1 })
+    expect(RuntimeDebugger:CheckBreakpoint("limited.luau", 4))
+    expect(not RuntimeDebugger:CheckBreakpoint("limited.luau", 4))
+end)
+
+test("Debugger breakpoint enable and remove", function()
+    RuntimeDebugger:AddBreakpoint("toggle.luau", 5)
+    expect(RuntimeDebugger:EnableBreakpoint("toggle.luau", 5, false))
+    expect(not RuntimeDebugger:CheckBreakpoint("toggle.luau", 5))
+    expect(RuntimeDebugger:RemoveBreakpoint("toggle.luau", 5))
+end)
+
+test("Debugger lists breakpoints deterministically", function()
+    local list = RuntimeDebugger:ListBreakpoints()
+    expect(#list >= 1)
+    for index = 2, #list do expect(list[index - 1].Key <= list[index].Key) end
+end)
+
+test("Debugger watch registration and evaluation", function()
+    local value = 15
+    RuntimeDebugger:AddWatch("value", function() return value end)
+    equal(RuntimeDebugger:EvaluateWatch("value"), 15)
+    value = 22
+    equal(RuntimeDebugger:EvaluateWatch("value"), 22)
+end)
+
+test("Debugger watch errors are isolated", function()
+    RuntimeDebugger:AddWatch("broken", function() error("watch failed") end)
+    local result, err = RuntimeDebugger:EvaluateWatch("broken")
+    equal(result, nil)
+    expect(type(err) == "string")
+end)
+
+test("Debugger evaluates all watches", function()
+    local result = RuntimeDebugger:EvaluateAllWatches()
+    equal(result.value.Value, 22)
+    expect(result.broken.Error ~= nil)
+end)
+
+test("Debugger removes watches", function()
+    expect(RuntimeDebugger:RemoveWatch("value"))
+    expect(not RuntimeDebugger:HasWatch("value"))
+end)
+
+test("Debugger trace recording and filtering", function()
+    RuntimeDebugger:Trace("INFO", "started", { Frame = 1 })
+    RuntimeDebugger:Trace("WARN", "slow frame")
+    equal(#RuntimeDebugger:GetTrace("INFO"), 1)
+    equal(RuntimeDebugger:GetTrace("INFO")[1].Data.Frame, 1)
+end)
+
+test("Debugger trace history is bounded", function()
+    RuntimeDebugger:SetMaximumTraceEntries(2)
+    RuntimeDebugger:Trace("TEST", "one")
+    RuntimeDebugger:Trace("TEST", "two")
+    RuntimeDebugger:Trace("TEST", "three")
+    equal(#RuntimeDebugger:GetTrace(), 2)
+    RuntimeDebugger:SetMaximumTraceEntries(500)
+end)
+
+test("Debugger snapshots are copied", function()
+    local original = { Score = 10 }
+    RuntimeDebugger:Snapshot("before", original)
+    original.Score = 99
+    equal(RuntimeDebugger:GetSnapshot("before").Value.Score, 10)
+end)
+
+test("Debugger compares snapshots", function()
+    RuntimeDebugger:Snapshot("after", { Score = 20, Level = 2 })
+    local diff = RuntimeDebugger:CompareSnapshots("before", "after")
+    expect(diff.Changed)
+    equal(diff.Properties.Score.Before, 10)
+    equal(diff.Properties.Score.After, 20)
+end)
+
+test("Debugger inspects values", function()
+    local info = RuntimeDebugger:Inspect({ A = 1, B = true })
+    equal(info.Type, "table")
+    equal(info.Count, 2)
+    equal(info.Preview.A, 1)
+end)
+
+test("Debugger disable suppresses tracing and breakpoints", function()
+    RuntimeDebugger:SetEnabled(false)
+    expect(not RuntimeDebugger:Trace("OFF", "ignored"))
+    expect(not RuntimeDebugger:CheckBreakpoint("sample.luau", 12))
+    RuntimeDebugger:SetEnabled(true)
+end)
+
+test("Debugger statistics and clear", function()
+    expect(RuntimeDebugger:GetStatistics().Traces >= 2)
+    RuntimeDebugger:Clear()
+    equal(#RuntimeDebugger:ListBreakpoints(), 0)
+    equal(#RuntimeDebugger:GetTrace(), 0)
+end)
+
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
