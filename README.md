@@ -107,6 +107,34 @@ compatibility layer, not a Roblox client or executor, and does not provide compl
 compatibility, remote asset loading, automatic file watching, or a persistent Luau VM.
 
 
+
+## UPDATE 2.4 — Resource Dependency Graph
+
+The dependency graph builds a read-only snapshot of Resource Manager relationships. It reports
+nodes, edges, missing references, cycles, graph metrics, and a dependency-first topological order
+when the graph is acyclic. It also supports reverse impact analysis and transitive dependency
+closure. Analysis does not mutate or release resources.
+
+```lua
+local ok, graph = game:BuildResourceDependencyGraph()
+if ok then
+    print("Acyclic:", graph.IsAcyclic)
+    print("Resources:", graph.Metrics.NodeCount)
+    print("Cycles:", graph.Metrics.CycleCount)
+end
+
+local affected = game:GetResourceDependencyImpact("database")
+for _, resourceId in ipairs(affected or {}) do
+    print("Affected:", resourceId)
+end
+
+local dependencies = game.ResourceDependencyGraph:GetDependencyClosure("application")
+```
+
+Snapshots are detached copies and retained in a bounded history. Missing edges can occur when
+a dependency is released while another resource still references its ID. Cycles are reported
+rather than automatically resolved; callers remain responsible for cleanup policy.
+
 ## UPDATE 2.3 — Resource Intelligence
 
 The Resource Intelligence layer performs read-only audits across the logical Memory Manager,
