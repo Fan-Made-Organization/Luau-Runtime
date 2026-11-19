@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QApplication, QFrame, QLabel, QLineEdit, QMainWindow, QPushButton,
     QScrollArea, QStatusBar, QWidget,
@@ -155,10 +155,11 @@ class SimulatorWindow(QMainWindow):
         self.refresh(data)
 
     def refresh(self, data: dict):
-        for child in self.canvas.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly):
-            child.hide()
-            child.setParent(None)
-            child.deleteLater()
+        for child in self.canvas.children():
+            if isinstance(child, QWidget):
+                child.hide()
+                child.setParent(None)
+                child.deleteLater()
         self.renderer = GuiRenderer(self.canvas, self.dispatch_event)
         self.renderer.render_children(self.canvas, data.get("children", []))
         self.canvas.update()
