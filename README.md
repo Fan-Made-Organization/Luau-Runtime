@@ -108,6 +108,45 @@ compatibility, remote asset loading, automatic file watching, or a persistent Lu
 
 
 
+
+## UPDATE 2.5–3.0 — Runtime Observability and Validation
+
+Six opt-in subsystems extend runtime instrumentation:
+
+| Module | Purpose |
+|---|---|
+| `EventProfiler` | Record callback/event durations, aggregate averages/maxima and failures, and retain bounded samples. Instrumentation is explicit through `Game:ProfileEvent`. |
+| `SchedulerAnalyzer` | Capture read-only scheduler and task-queue statistics as bounded samples. |
+| `RuntimeHealthMonitor` | Run explicit cross-system health scans and retain bounded reports. It does not poll in the background. |
+| `AdvancedDiagnostics` | Store categorized INFO/WARNING/ERROR/CRITICAL findings with bounded retention. |
+| `BenchmarkEngine` | Run a callback for a bounded number of iterations and report elapsed/average time and failures. |
+| `StressLab` | Execute opt-in, iteration-capped callback scenarios while isolating individual callback errors. |
+
+Example:
+
+```lua
+local value = game:ProfileEvent("Example.Callback", function(a, b)
+    return a + b
+end, 10, 20)
+
+local ok, schedulerSample = game:CaptureSchedulerMetrics()
+local healthOk, health = game:ScanRuntimeHealth()
+
+local benchOk, benchmark = game:RunBenchmark("SmallWorkload", function()
+    -- bounded benchmark callback
+end, 1000)
+
+local stressOk, stress = game:RunStressScenario("Scenario", function(iteration)
+    -- one bounded scenario iteration
+end, 100)
+```
+
+All iteration and history limits are configurable. Benchmark and stress callbacks execute synchronously,
+so callers should use conservative iteration counts and short callbacks. Stress scenarios are not
+unbounded load generators. These modules do not measure native Luau VM heap usage, do not create
+background threads, and do not automatically modify or clean up runtime resources. Event profiling
+records only events explicitly passed through its API; it does not silently hook every Signal.
+
 ## UPDATE 2.4 — Resource Dependency Graph
 
 The dependency graph builds a read-only snapshot of Resource Manager relationships. It reports
