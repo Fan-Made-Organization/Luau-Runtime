@@ -20,6 +20,8 @@ local RuntimeStatistics = require("./runtime_statistics")
 local RuntimeProfiler = require("./runtime_profiler")
 local MemoryManager = require("./memory_manager")
 local EventManager = require("./event_manager")
+local ResourceManager = require("./resource_manager")
+local RuntimeDebugger = require("./runtime_debugger")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -81,6 +83,8 @@ Game.RuntimeStatistics = RuntimeStatistics
 Game.RuntimeProfiler = RuntimeProfiler
 Game.MemoryManager = MemoryManager
 Game.EventManager = EventManager
+Game.ResourceManager = ResourceManager
+Game.RuntimeDebugger = RuntimeDebugger
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -93,6 +97,14 @@ Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
 
 -- Proveedores de estadísticas
+RuntimeStatistics:RegisterProvider("ResourceManager", function()
+    return ResourceManager:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("RuntimeDebugger", function()
+    return RuntimeDebugger:GetStatistics()
+end)
+
 RuntimeStatistics:RegisterProvider("MemoryManager", function()
     return MemoryManager:GetStatistics()
 end)
@@ -237,6 +249,15 @@ end
 
 function Game:GetMemoryStatistics()
     return MemoryManager:GetStatistics()
+end
+
+-- Resource Manager
+function Game:RegisterResource(id, value, options)
+    return ResourceManager:Register(id, value, options)
+end
+
+function Game:ReleaseResource(id)
+    return ResourceManager:Release(id)
 end
 
 -- Event Manager
