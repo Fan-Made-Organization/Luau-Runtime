@@ -25,6 +25,7 @@ local RuntimeDebugger = require("./runtime_debugger")
 local PerformanceMonitor = require("./performance_monitor")
 local TaskQueue = require("./task_queue")
 local InstanceManager = require("./instance_manager")
+local GarbageCollector = require("./garbage_collector")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -91,6 +92,7 @@ Game.RuntimeDebugger = RuntimeDebugger
 Game.PerformanceMonitor = PerformanceMonitor
 Game.TaskQueue = TaskQueue
 Game.InstanceManager = InstanceManager
+Game.GarbageCollector = GarbageCollector
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -121,6 +123,10 @@ end)
 
 RuntimeStatistics:RegisterProvider("MemoryManager", function()
     return MemoryManager:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("GarbageCollector", function()
+    return GarbageCollector:GetStatistics()
 end)
 
 RuntimeStatistics:RegisterProvider("EventManager", function()
@@ -259,6 +265,23 @@ end
 
 function Game:ReleaseMemory(id)
     return MemoryManager:Release(id)
+end
+
+-- Managed Garbage Collection (does not replace the Luau VM garbage collector).
+function Game:TrackManagedObject(id, value, options)
+    return GarbageCollector:Track(id, value, options)
+end
+
+function Game:CollectGarbage(options)
+    return GarbageCollector:Collect(options)
+end
+
+function Game:AddManagedReference(sourceId, targetId)
+    return GarbageCollector:AddReference(sourceId, targetId)
+end
+
+function Game:SetManagedRoot(id, isRoot)
+    return GarbageCollector:SetRoot(id, isRoot)
 end
 
 function Game:GetMemoryStatistics()
@@ -451,6 +474,9 @@ function Game:Step(deltaTime)
     RuntimeStatistics:Record("FrameDeltaTime", deltaTime)
 
     RuntimeStatistics:EndMeasure(totalTimer)
+
+    -- Automatic managed collection is opt-in and disabled by default.
+    GarbageCollector:Step()
 
     return stepResult
 end
