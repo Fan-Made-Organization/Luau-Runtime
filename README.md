@@ -40,6 +40,38 @@ FMO Luau Runtime is a project developed by Fan-Made Organization (FMO). It provi
 - Runtime statistics and an integrated performance profiler.
 - Integrated runtime manager.
 
+## Runtime profiler — UPDATE 1.3
+
+The runtime exposes a built-in profiler through `Game.RuntimeProfiler` and the
+convenience methods on `Game`:
+
+```lua
+-- Measure a callback and preserve its return values.
+local result = game:Profile("CustomCalculation", function(a, b)
+    return a + b
+end, 20, 22)
+
+-- Or measure a manual section.
+local token = game:BeginProfile("ManualSection")
+-- Run the code you want to measure here.
+local elapsed = game:EndProfile(token)
+
+-- Read the report, ordered by total recorded time.
+local report = game:GetProfileReport()
+for _, profile in ipairs(report) do
+    print(profile.Name, profile.Count, profile.Average, profile.Maximum)
+end
+
+-- Access profiler information in the general performance snapshot.
+local performance = game:GetPerformanceStatistics()
+local profilerStats = performance.Providers.RuntimeProfiler
+```
+
+The profiler supports bounded sample history, minimum/maximum/average/latest
+timings, callback error propagation, enable/disable controls, and clearing
+completed profiles. Measurement tokens are validated against private timing
+data so editing their public fields cannot alter recorded measurements.
+
 **Important:** FMO Luau Runtime is not an official Roblox runtime and does not provide complete Roblox engine compatibility. Some systems are simulations and do not reproduce real Roblox networking, physics, or execution environments.
 
 ## Requirements
