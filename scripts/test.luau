@@ -157,7 +157,7 @@ end
 print("")
 print("========================================================")
 print("             FMO LUAU RUNTIME")
-print("                SUPER TEST 1.1")
+print("                SUPER TEST 1.2")
 print("========================================================")
 print("")
 print("[Runtime] Initializing...")
@@ -260,6 +260,52 @@ test("Instance cloning", function()
     equal(clone.Name, testPart.Name)
 
     clone:Destroy()
+end)
+
+test("Instance clone deep-copies mutable properties", function()
+    local original = Instance.new("Part")
+    original.Position = {1, 2, 3}
+    local clone = original:Clone()
+
+    clone.Position[1] = 99
+
+    equal(original.Position[1], 1)
+    equal(clone.Position[1], 99)
+    clone:Destroy()
+    original:Destroy()
+end)
+
+test("Instance rejects forged parent tables", function()
+    local object = Instance.new("Folder")
+    local forged = {
+        _isInstance = true,
+        _children = {},
+        _properties = {},
+        _destroyed = false,
+    }
+
+    local ok = pcall(function()
+        object.Parent = forged
+    end)
+
+    expect(not ok)
+    equal(object.Parent, nil)
+    object:Destroy()
+end)
+
+test("Instance rejects circular parent hierarchy", function()
+    local parent = Instance.new("Folder")
+    local child = Instance.new("Folder")
+    child.Parent = parent
+
+    local ok = pcall(function()
+        parent.Parent = child
+    end)
+
+    expect(not ok)
+    equal(parent.Parent, nil)
+    equal(child.Parent, parent)
+    parent:Destroy()
 end)
 
 --------------------------------------------------------
