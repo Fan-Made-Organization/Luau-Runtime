@@ -16,15 +16,33 @@ local PROPERTY_ALLOWLIST = {
 local function safeValue(value, depth)
     depth = depth or 0
     if depth > 5 then return tostring(value) end
+
     local kind = type(value)
     if kind == "nil" or kind == "boolean" or kind == "number" or kind == "string" then
         return value
     end
     if kind ~= "table" then return tostring(value) end
+
+    -- Preserve contiguous numeric tables as JSON arrays. GUI geometry
+    -- (UDim2-like {scale, offset, scale, offset}) depends on array decoding.
+    local count = 0
+    local maximum = 0
+    local isArray = true
+    for key in pairs(value) do
+        if type(key) ~= "number" or key < 1 or key % 1 ~= 0 then
+            isArray = false
+            break
+        end
+        count = count + 1
+        if key > maximum then maximum = key end
+    end
+    isArray = isArray and count > 0 and count == maximum
+
     local result = {}
     for key, item in pairs(value) do
         if type(key) == "string" or type(key) == "number" then
-            result[tostring(key)] = safeValue(item, depth + 1)
+            local safeKey = isArray and key or tostring(key)
+            result[safeKey] = safeValue(item, depth + 1)
         end
     end
     return result
