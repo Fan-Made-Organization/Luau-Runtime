@@ -1544,11 +1544,17 @@ test("Profiler begin and end measurement", function()
     expect(type(profilerToken) == "table")
     expect(profilerToken.Active)
 
+    -- Public token fields must not be able to rewrite private timing data.
+    profilerToken.Name = "FMO_Tampered_Profile"
+    profilerToken.StartedAt = -1000000000
+
     local elapsed = Game:EndProfile(profilerToken)
 
     expect(type(elapsed) == "number")
     expect(elapsed >= 0)
     expect(not profilerToken.Active)
+    expect(Profiler:GetProfile("FMO_Test_Profile") ~= nil)
+    equal(Profiler:GetProfile("FMO_Tampered_Profile"), nil)
 end)
 
 test("Profiler rejects reused tokens", function()
