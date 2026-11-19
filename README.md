@@ -4,7 +4,7 @@
 
 Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
 
-> **Project status:** UPDATE 2.0 adds seven integrated runtime systems: Memory Manager, Event Manager, Resource Manager, Runtime Debugger, Performance Monitor, Task Queue, and Instance Manager. The expanded Super Test targets 282 automated checks. These new checks must be run locally or by CI before the release is considered verified.
+> **Project status:** UPDATE 2.0 adds seven integrated runtime systems: Memory Manager, Event Manager, Resource Manager, Runtime Debugger, Performance Monitor, Task Queue, and Instance Manager. The expanded Super Test targets 280 automated checks. These new checks must be run locally or by CI before the release is considered verified.
 
 ---
 
@@ -24,7 +24,7 @@ UPDATE 2.0 introduces seven new modules exposed through the shared `Game` object
 | `TaskQueue` | Deferred and delayed callbacks, priority ordering, cancellation, queue limits, pause/resume, bounded history and execution budgets. |
 | `InstanceManager` | Indexed Instance lookup by name/class, tags, groups, metadata, index refresh/rebuild, validation and lifecycle tracking. |
 
-The `Game` facade exposes common entry points, and runtime statistics now include providers for the new managers. The regression suite has been expanded to **282 checks** covering normal behavior, invalid inputs, cleanup, limits, callback errors and edge cases.
+The `Game` facade exposes common entry points, and runtime statistics now include providers for the new managers. The regression suite has been expanded to **280 checks** covering normal behavior, invalid inputs, cleanup, limits, callback errors and edge cases.
 
 **Verification status:** source changes and regression cases have been added to the `Runtime` branch. The new 282-check suite has not yet been executed in this development session; run the commands below and inspect the final report before treating UPDATE 2.0 as passing.
 
