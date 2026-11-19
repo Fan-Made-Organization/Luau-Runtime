@@ -2474,6 +2474,36 @@ test("Instance manager clear and reset", function()
 end)
 
 
+
+test("Performance timer token cannot rewrite private timing data", function()
+    local token = PerformanceMonitor:StartTimer("tamper-safe")
+    token.Name = "forged-name"
+    token.StartedAt = -100000
+    local elapsed = PerformanceMonitor:StopTimer(token)
+    expect(type(elapsed) == "number")
+    expect(PerformanceMonitor:GetCount("tamper-safe") == 1)
+    equal(PerformanceMonitor:GetCount("forged-name"), 0)
+end)
+
+test("Task queue capacity counts dictionary entries correctly", function()
+    TaskQueue:Reset()
+    TaskQueue:SetMaximumTasks(2)
+    local first = TaskQueue:Enqueue(function() end)
+    local second = TaskQueue:Enqueue(function() end)
+    local third = TaskQueue:Enqueue(function() end)
+    expect(first ~= nil and second ~= nil)
+    equal(third, nil)
+    TaskQueue:Reset()
+end)
+
+test("Closed resource scopes reject new registrations", function()
+    local scope = ResourceManager:CreateScope("closed-scope")
+    local ok = ResourceManager:ReleaseScope(scope)
+    expect(ok)
+    local registered = ResourceManager:Register("closed-scope-resource", {}, { Scope = scope })
+    expect(not registered)
+end)
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
