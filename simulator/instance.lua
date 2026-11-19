@@ -217,6 +217,11 @@ InstanceMetatable.__index = function(self, key)
         return method
     end
 
+    local guiSignal = self._guiSignals and self._guiSignals[key]
+    if guiSignal then
+        return guiSignal
+    end
+
     return self._properties[key]
 end
 
@@ -303,12 +308,21 @@ function Instance.new(className)
 
         _propertySignals = {},
         _attributeSignals = {},
+        _guiSignals = {},
 
         _destroyed = false,
         _isInstance = true,
 
         Changed = Signal.new(),
     }
+
+    if className == "TextButton" then
+        object._guiSignals.MouseButton1Click = Signal.new()
+        object._guiSignals.Activated = Signal.new()
+    elseif className == "TextBox" then
+        object._guiSignals.FocusLost = Signal.new()
+        object._guiSignals.Focused = Signal.new()
+    end
 
     return setmetatable(object, InstanceMetatable)
 end
@@ -658,6 +672,12 @@ function InstanceMethods:Destroy()
         removeChild(oldParent, self)
         rawset(self, "_parent", nil)
     end
+
+    -- Destroy GUI input signals.
+    for _, signal in pairs(self._guiSignals) do
+        signal:Destroy()
+    end
+    self._guiSignals = {}
 
     -- Destroy Changed signal.
     if self.Changed then
