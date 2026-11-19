@@ -86,16 +86,25 @@ end)
 print("__FMO_GUI_SNAPSHOT__" .. GuiBridge.Export(screen))
 ```
 
-Supported desktop widgets currently include Frames, TextLabels, TextButtons, TextBoxes, and
-basic ScrollingFrames. TextButton click events and TextBox focus-loss events are bridged back
-to Luau callbacks. To keep the CLI sandbox independent of host IO, each interaction currently
-replays the script in a fresh Luau process, dispatches the requested event, and returns an
-updated snapshot. Consequently, Lua variables and in-memory state are recreated on each event;
-persist state externally if a script needs it between interactions.
+The desktop renderer supports Frames, ScrollingFrames, TextLabels, TextButtons, TextBoxes,
+ImageLabels, and ImageButtons. It also implements a growing set of visual modifiers:
+UICorner, UIStroke, UIGradient, and UIScale. UIListLayout and UIGridLayout provide basic
+automatic vertical/horizontal and grid placement using LayoutOrder, Padding, CellSize, and
+CellPadding. ScrollingFrames use a real Qt scroll area. TextButton and ImageButton clicks,
+plus TextBox editing completion, are bridged back to Luau callbacks.
 
-The renderer currently uses offset-style `{scaleX, offsetX, scaleY, offsetY}` arrays for
-Size/Position and does not implement full Roblox UDim2, Color3, Enum, layout, tweening,
-automatic file watching, or a persistent Luau VM. These are planned compatibility milestones.
+Image widgets currently load local filesystem image paths. Roblox asset identifiers
+(`rbxassetid://...`) are not downloaded or resolved. UIGradient color arrays and UDim-like
+arrays are supported as a compatibility representation, not as complete Roblox ColorSequence,
+Color3, UDim, or UDim2 implementations. Layout alignment, clipping, text scaling, nine-slice
+images, rich text, and some advanced properties remain partial or unsupported.
+
+To keep the CLI sandbox independent of host IO, each interaction currently replays the script
+in a fresh Luau process, dispatches the requested event, and returns an updated snapshot.
+Consequently, Lua variables and in-memory state are recreated on each event; persist state
+externally if a script needs it between interactions. The simulator is a local visual
+compatibility layer, not a Roblox client or executor, and does not provide complete engine
+compatibility, remote asset loading, automatic file watching, or a persistent Luau VM.
 
 ## Features
 
