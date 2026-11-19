@@ -47,15 +47,12 @@ function GuiBridge.Snapshot(root)
     return serialize(root, 0)
 end
 
-function GuiBridge.Export(root, outputPath)
-    assert(type(outputPath) == "string" and outputPath ~= "", "Export expects an output path")
-    local file, openError = io.open(outputPath, "w")
-    if not file then error("Unable to open GUI snapshot: " .. tostring(openError)) end
+-- Luau CLI may run with the IO library disabled. Return JSON to the host
+-- instead of writing files from inside the Luau sandbox.
+function GuiBridge.Export(root)
     local success, encoded = pcall(JSON.encode, GuiBridge.Snapshot(root))
-    if not success then file:close(); error(encoded) end
-    file:write(encoded)
-    file:close()
-    return true
+    if not success then error(encoded) end
+    return encoded
 end
 
 return GuiBridge
