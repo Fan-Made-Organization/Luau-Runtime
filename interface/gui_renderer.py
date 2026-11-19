@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QRectF
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap, QIcon, QPen, QPainterPath
 from PySide6.QtWidgets import (
     QWidget, QFrame, QPushButton, QLineEdit, QScrollArea,
@@ -215,7 +215,7 @@ class FmoImageLabel(QWidget):
             100, 0
         ))
         clip = QPainterPath()
-        clip.addRoundedRect(self.rect(), radius, radius)
+        clip.addRoundedRect(QRectF(self.rect()), radius, radius)
         painter.setClipPath(clip)
         if self.pixmap.isNull():
             painter.setPen(QPen(QColor("#8993a8"), 1, Qt.PenStyle.DashLine))
