@@ -27,22 +27,6 @@ def bridge_require_path(script: Path) -> str:
     return value
 
 
-def label_alignment(horizontal, vertical):
-    horizontal_flags = {
-        "left": Qt.AlignmentFlag.AlignLeft,
-        "center": Qt.AlignmentFlag.AlignHCenter,
-        "right": Qt.AlignmentFlag.AlignRight,
-    }
-    vertical_flags = {
-        "top": Qt.AlignmentFlag.AlignTop,
-        "center": Qt.AlignmentFlag.AlignVCenter,
-        "bottom": Qt.AlignmentFlag.AlignBottom,
-    }
-    h = horizontal_flags.get(str(horizontal or "left").lower(), Qt.AlignmentFlag.AlignLeft)
-    v = vertical_flags.get(str(vertical or "center").lower(), Qt.AlignmentFlag.AlignVCenter)
-    return h | v
-
-
 class SimulatorWindow(QMainWindow):
     def __init__(self, data: dict, script_path: Path):
         super().__init__()
