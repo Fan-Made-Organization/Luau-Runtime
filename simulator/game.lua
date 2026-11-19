@@ -27,6 +27,7 @@ local PerformanceMonitor = require("./performance_monitor")
 local TaskQueue = require("./task_queue")
 local InstanceManager = require("./instance_manager")
 local GarbageCollector = require("./garbage_collector")
+local ResourceIntelligence = require("./resource_intelligence")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -95,6 +96,7 @@ Game.PerformanceMonitor = PerformanceMonitor
 Game.TaskQueue = TaskQueue
 Game.InstanceManager = InstanceManager
 Game.GarbageCollector = GarbageCollector
+Game.ResourceIntelligence = ResourceIntelligence
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -133,6 +135,10 @@ end)
 
 RuntimeStatistics:RegisterProvider("GarbageCollector", function()
     return GarbageCollector:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("ResourceIntelligence", function()
+    return ResourceIntelligence:GetStatistics()
 end)
 
 RuntimeStatistics:RegisterProvider("EventManager", function()
@@ -304,6 +310,15 @@ end
 
 function Game:GetMemoryProfile()
     return MemoryProfiler:GetSummary()
+end
+
+-- Resource Intelligence (read-only cross-system diagnostics).
+function Game:ScanResourceHealth(options)
+    return ResourceIntelligence:Scan(options)
+end
+
+function Game:GetResourceHealth()
+    return ResourceIntelligence:GetLatest()
 end
 
 -- Instance Manager
