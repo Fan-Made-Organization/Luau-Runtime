@@ -1,4 +1,5 @@
 -- Explicit on-demand health aggregation; diagnostics are read-only.
+local Snapshot = require("./snapshot")
 local Health={Enabled=true,HistoryLimit=50,_history={},_sequence=0}
 local function invoke(fn)
  if type(fn)~="function" then return nil,"Unavailable" end
@@ -18,13 +19,13 @@ function Health:Scan(game)
  if not checks.ResourceIntelligence.Success or not checks.DependencyGraph.Success or not checks.RuntimeStatus.Success then health="DEGRADED"
  elseif report and report.Health then health=report.Health end
  self._sequence+=1
- local result={Id=self._sequence,At=os.clock(),Health=health,Checks=checks}
+ local result={Id=self._sequence,At=os.clock(),Health=health,Checks=Snapshot.Clone(checks)}
  self._history[#self._history+1]=result
  while #self._history>self.HistoryLimit do table.remove(self._history,1) end
- return true,result
+ return true,Snapshot.Clone(result)
 end
-function Health:GetLatest() return self._history[#self._history] end
-function Health:GetHistory() local out={};for i,v in ipairs(self._history) do out[i]=v end;return out end
+function Health:GetLatest() return Snapshot.Clone(self._history[#self._history]) end
+function Health:GetHistory() return Snapshot.Array(self._history) end
 function Health:SetEnabled(v) self.Enabled=v==true;return self.Enabled end
 function Health:SetHistoryLimit(n) if type(n)~="number" or n<1 or n%1~=0 then error("History limit must be positive integer",2) end;self.HistoryLimit=n;while #self._history>n do table.remove(self._history,1) end end
 function Health:GetStatistics() return {Enabled=self.Enabled,Scans=#self._history,HistoryLimit=self.HistoryLimit} end
