@@ -6,57 +6,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QMainWindow, QStatusBar, QWidget
+
+from .gui_renderer import GuiRenderer
 
 ROOT = Path(__file__).resolve().parents[1]
 LUAU = Path(os.environ.get("FMO_LUAU_PATH", Path.home() / "luau/build/luau")).expanduser()
 SNAPSHOT_MARKER = "__FMO_GUI_SNAPSHOT__"
-
-
-def number(value, fallback=0):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return fallback
-
-
-def color(value, fallback="#252936"):
-    if isinstance(value, list) and len(value) >= 3:
-        return QColor(*(max(0, min(255, int(number(v)))) for v in value[:3]))
-    if isinstance(value, dict):
-        values = [value.get(str(i), 0) for i in range(1, 4)]
-        return QColor(*(max(0, min(255, int(number(v) * 255 if number(v) <= 1 else number(v)))) for v in values))
-    return QColor(fallback)
-
-
-def rgba(value, transparency=0, fallback="#252936"):
-    shade = color(value, fallback)
-    shade.setAlphaF(max(0.0, min(1.0, 1.0 - number(transparency))))
-    return shade.name(QColor.NameFormat.HexArgb)
-
-
-def _udim_component(scale, offset, parent_extent, fallback):
-    return int(round(number(scale) * parent_extent + number(offset, fallback)))
-
-
-def dimensions(value, default=(180, 40), parent_size=(900, 650)):
-    if not isinstance(value, list) or len(value) < 4:
-        return default
-    return (
-        max(1, _udim_component(value[0], value[1], parent_size[0], default[0])),
-        max(1, _udim_component(value[2], value[3], parent_size[1], default[1])),
-    )
-
-
-def position(value, parent_size=(900, 650)):
-    if not isinstance(value, list) or len(value) < 4:
-        return (12, 12)
-    return (
-        _udim_component(value[0], value[1], parent_size[0], 12),
-        _udim_component(value[2], value[3], parent_size[1], 12),
-    )
 
 
 def lua_string(value: str) -> str:
@@ -85,9 +41,6 @@ def label_alignment(horizontal, vertical):
     h = horizontal_flags.get(str(horizontal or "left").lower(), Qt.AlignmentFlag.AlignLeft)
     v = vertical_flags.get(str(vertical or "center").lower(), Qt.AlignmentFlag.AlignVCenter)
     return h | v
-
-
-from .gui_renderer import GuiRenderer
 
 
 class SimulatorWindow(QMainWindow):
@@ -121,6 +74,7 @@ class SimulatorWindow(QMainWindow):
 
         counts = {}
         total = 0
+
         def inspect_tree(nodes):
             nonlocal total
             for item in nodes if isinstance(nodes, list) else []:
