@@ -57,7 +57,7 @@ local description = create("TextLabel", panel, {
 
 local action = create("TextButton", panel, {
     Name = "ActionButton",
-    Text = "RUN LUUAU CALLBACK",
+    Text = "RUN LUAU CALLBACK",
     TextSize = 14,
     Font = "GothamBold",
     BackgroundColor3 = {68, 105, 190},
