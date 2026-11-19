@@ -735,6 +735,48 @@ test("ModuleLoader statistics", function()
     expect(type(ModuleLoader.GetStatistics) == "function")
 end)
 
+local loaderTestModule
+local clearCacheTestModule
+
+test("ModuleLoader loads and caches modules", function()
+    loaderTestModule = Instance.new("ModuleScript")
+    loaderTestModule.Name = "FMO_ModuleLoader_Cache_Test"
+    loaderTestModule.Source = "return { Value = 42 }"
+
+    local firstResult = ModuleLoader:Require(loaderTestModule)
+    local secondResult = ModuleLoader:Require(loaderTestModule)
+
+    equal(firstResult.Value, 42)
+    expect(firstResult == secondResult)
+    expect(ModuleLoader:IsLoaded(loaderTestModule))
+end)
+
+test("ModuleLoader unload releases cached modules", function()
+    expect(ModuleLoader:Unload(loaderTestModule))
+    expect(not ModuleLoader:IsLoaded(loaderTestModule))
+
+    loaderTestModule:Destroy()
+    loaderTestModule = nil
+end)
+
+test("ModuleLoader ClearCache tracks unloaded modules", function()
+    clearCacheTestModule = Instance.new("ModuleScript")
+    clearCacheTestModule.Name = "FMO_ModuleLoader_ClearCache_Test"
+    clearCacheTestModule.Source = "return { Cached = true }"
+
+    ModuleLoader:Require(clearCacheTestModule)
+
+    local previousUnloads = ModuleLoader:GetStatistics().Unloads
+    local removed = ModuleLoader:ClearCache()
+
+    expect(removed >= 1)
+    expect(not ModuleLoader:IsLoaded(clearCacheTestModule))
+    expect(ModuleLoader:GetStatistics().Unloads >= previousUnloads + 1)
+
+    clearCacheTestModule:Destroy()
+    clearCacheTestModule = nil
+end)
+
 --------------------------------------------------------
 -- 15. SCRIPT LIFECYCLE
 --------------------------------------------------------
