@@ -41,7 +41,5 @@ input.Size = {0, 220, 0, 38}
 input.Position = {0, 22, 0, 180}
 input.Parent = panel
 
-local outputPath = os.getenv("FMO_GUI_OUTPUT")
-assert(outputPath, "FMO_GUI_OUTPUT was not provided by the desktop launcher")
-GuiBridge.Export(screen, outputPath)
+GuiBridge.Export(screen, ".fmo_gui_snapshot.json")
 print("[FMO GUI] Interfaz exportada correctamente.")
