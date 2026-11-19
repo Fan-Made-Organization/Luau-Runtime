@@ -945,3 +945,50 @@ runtime bookkeeping only, not measurements of the Luau VM heap.
 New convenience methods are also available on `Game`:
 `TrackManagedObject`, `AddManagedReference`, `SetManagedRoot`, and
 `CollectGarbage`.
+
+
+## Memory Profiler — UPDATE 2.2
+
+UPDATE 2.2 adds `Game.MemoryProfiler`, a bounded snapshot and comparison tool
+for allocations registered with `Game.MemoryManager`. It reports logical
+allocation accounting only; it does **not** measure the Luau VM's native heap.
+
+```lua
+local memory = game.MemoryManager
+local profiler = game.MemoryProfiler
+
+memory:Allocate("world-meshes", 4096, {
+    Tag = "Geometry",
+    Owner = "WorldRenderer",
+})
+
+local ok, baseline = profiler:Capture("scene-loaded")
+
+-- Run a workload, allocate/release/resize managed allocations, then capture.
+local _, after = profiler:Capture("after-workload")
+local compared, diff = profiler:Compare(baseline.Id, after.Id)
+
+if compared then
+    print("Logical byte delta:", diff.DeltaBytes)
+    print("New allocations:", diff.AddedCount)
+    print("Released allocations:", diff.RemovedCount)
+end
+
+for _, group in ipairs(profiler:GetBreakdown(after.Id, "Tag")) do
+    print(group.Name, group.Count, group.Bytes)
+end
+
+-- Persistent allocations are investigation candidates, not proof of a leak.
+local candidates = profiler:GetLeakCandidates(3)
+```
+
+The profiler includes bounded history, detached snapshot copies, before/after
+diffs for allocations and resizes, breakdowns by tag and owner, largest
+allocations, persistent-allocation candidates, summary statistics, and
+configuration/reset controls. The candidate report deliberately avoids claiming
+that a long-lived allocation is definitely a leak: ownership and intended
+lifetime must be reviewed by the application.
+
+Convenience methods on `Game` are `CaptureMemorySnapshot`,
+`CompareMemorySnapshots`, and `GetMemoryProfile`. The profiler is also
+registered as a runtime-statistics provider.
