@@ -32,6 +32,12 @@ local inheritance = {
     ModuleScript = {
         LuaSourceContainer = true,
     },
+    TextButton = { GuiButton = true, GuiObject = true },
+    TextLabel = { GuiObject = true },
+    TextBox = { GuiButton = true, GuiObject = true },
+    Frame = { GuiObject = true },
+    ScrollingFrame = { Frame = true, GuiObject = true },
+    ScreenGui = { LayerCollector = true },
 }
 
 -- ==========================================
@@ -76,6 +82,12 @@ local classDefaults = {
         Name = "ModuleScript",
         Source = "",
     },
+    ScreenGui = { Name = "ScreenGui", Enabled = true, DisplayOrder = 0 },
+    Frame = { Name = "Frame", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {35,38,48}, Size = {0,200,0,120}, Position = {0,0,0,0} },
+    TextLabel = { Name = "TextLabel", Text = "Label", Visible = true, BackgroundTransparency = 1, TextColor3 = {240,240,245}, TextSize = 14, Size = {0,160,0,28}, Position = {0,0,0,0} },
+    TextButton = { Name = "TextButton", Text = "Button", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {70,100,180}, TextColor3 = {255,255,255}, TextSize = 14, Size = {0,140,0,36}, Position = {0,0,0,0} },
+    TextBox = { Name = "TextBox", Text = "", PlaceholderText = "Enter text...", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {48,52,64}, TextColor3 = {255,255,255}, TextSize = 14, Size = {0,180,0,34}, Position = {0,0,0,0} },
+    ScrollingFrame = { Name = "ScrollingFrame", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {30,33,42}, Size = {0,220,0,160}, Position = {0,0,0,0}, CanvasSize = {0,0,0,0} },
 }
 
 -- ==========================================
