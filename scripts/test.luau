@@ -1649,6 +1649,284 @@ test("Profiler statistics provider is registered", function()
     expect(providers.RuntimeProfiler.ProfileCount >= 1)
 end)
 
+
+--------------------------------------------------------
+-- 30A. MEMORY MANAGER
+--------------------------------------------------------
+
+section("30A. MEMORY MANAGER")
+
+local MemoryManager = Game.MemoryManager
+
+test("MemoryManager is integrated", function()
+    expect(type(MemoryManager) == "table")
+    expect(type(Game.AllocateMemory) == "function")
+    expect(type(Game.ReleaseMemory) == "function")
+end)
+
+test("Memory allocation", function()
+    MemoryManager:Reset()
+    local ok, record = MemoryManager:Allocate("test-a", 128, { Tag = "Tests", Owner = "Suite" })
+    expect(ok)
+    equal(record.Bytes, 128)
+    equal(MemoryManager:GetTotalBytes(), 128)
+end)
+
+test("Duplicate allocation is rejected", function()
+    local ok = MemoryManager:Allocate("test-a", 1)
+    expect(not ok)
+end)
+
+test("Allocation lookup and existence", function()
+    expect(MemoryManager:HasAllocation("test-a"))
+    equal(MemoryManager:GetAllocation("test-a").Bytes, 128)
+end)
+
+test("Allocation count", function()
+    equal(MemoryManager:GetAllocationCount(), 1)
+end)
+
+test("Memory resize updates accounting", function()
+    expect(MemoryManager:Resize("test-a", 256))
+    equal(MemoryManager:GetTotalBytes(), 256)
+end)
+
+test("Memory tag update and filtering", function()
+    expect(MemoryManager:SetTag("test-a", "Updated"))
+    equal(MemoryManager:CountByTag("Updated"), 1)
+    expect(MemoryManager:GetByTag("Updated")["test-a"] ~= nil)
+end)
+
+test("Memory owner update and filtering", function()
+    expect(MemoryManager:TransferOwner("test-a", "Worker"))
+    equal(MemoryManager:CountByOwner("Worker"), 1)
+    expect(MemoryManager:GetByOwner("Worker")["test-a"] ~= nil)
+end)
+
+test("Memory limit rejects over-allocation", function()
+    MemoryManager:SetLimit(300)
+    local ok = MemoryManager:Allocate("too-large", 100)
+    expect(not ok)
+    equal(MemoryManager:GetTotalBytes(), 256)
+end)
+
+test("Memory available and over-limit information", function()
+    equal(MemoryManager:GetAvailableBytes(), 44)
+    expect(not MemoryManager:IsOverLimit())
+end)
+
+test("Memory snapshot and diff", function()
+    local snapshot = MemoryManager:Snapshot()
+    MemoryManager:Resize("test-a", 200)
+    local diff = MemoryManager:Diff(snapshot)
+    equal(diff.Changed["test-a"].Before, 256)
+    equal(diff.Changed["test-a"].After, 200)
+    equal(diff.DeltaBytes, -56)
+end)
+
+test("Memory largest and smallest allocation", function()
+    MemoryManager:Allocate("small", 10)
+    equal(MemoryManager:GetLargest().Id, "test-a")
+    equal(MemoryManager:GetSmallest().Id, "small")
+end)
+
+test("Memory top allocations are sorted", function()
+    local top = MemoryManager:GetTop(2)
+    equal(#top, 2)
+    equal(top[1].Id, "test-a")
+end)
+
+test("Memory validation confirms accounting", function()
+    local ok, details = MemoryManager:Validate()
+    expect(ok)
+    expect(details.AllocationCount == 2)
+end)
+
+test("Memory statistics expose counters", function()
+    local stats = MemoryManager:GetStatistics()
+    expect(stats.Allocations >= 2)
+    expect(stats.Resizes >= 2)
+end)
+
+test("Memory release is idempotent", function()
+    expect(MemoryManager:Release("small"))
+    expect(not MemoryManager:Release("small"))
+end)
+
+test("Memory manager can be disabled", function()
+    MemoryManager:SetEnabled(false)
+    local ok = MemoryManager:Allocate("disabled", 1)
+    expect(not ok)
+    MemoryManager:SetEnabled(true)
+end)
+
+test("Memory manager clear releases all records", function()
+    equal(MemoryManager:Clear(), 1)
+    equal(MemoryManager:GetAllocationCount(), 0)
+    equal(MemoryManager:GetTotalBytes(), 0)
+end)
+
+test("Memory manager reset restores defaults", function()
+    MemoryManager:SetLimit(100)
+    MemoryManager:Reset()
+    equal(MemoryManager:GetLimit(), math.huge)
+    equal(MemoryManager:GetPeakBytes(), 0)
+end)
+
+--------------------------------------------------------
+-- 30B. EVENT MANAGER
+--------------------------------------------------------
+
+section("30B. EVENT MANAGER")
+
+local EventManager = Game.EventManager
+
+test("EventManager is integrated", function()
+    expect(type(EventManager) == "table")
+    expect(type(Game.SubscribeEvent) == "function")
+    expect(type(Game.PublishEvent) == "function")
+end)
+
+test("Event creation and existence", function()
+    EventManager:Reset()
+    equal(EventManager:Create("Suite.Ready"), "Suite.Ready")
+    expect(EventManager:Exists("Suite.Ready"))
+end)
+
+test("Event subscription and delivery", function()
+    local received
+    EventManager:Subscribe("Suite.Ready", function(value) received = value end)
+    local delivered, failed = EventManager:Publish("Suite.Ready", 42)
+    equal(received, 42)
+    equal(delivered, 1)
+    equal(failed, 0)
+end)
+
+test("Event listener count", function()
+    equal(EventManager:GetListenerCount("Suite.Ready"), 1)
+    expect(EventManager:HasListeners("Suite.Ready"))
+end)
+
+test("Event connection disconnect", function()
+    local connection = EventManager:Subscribe("Suite.Disconnect", function() end)
+    expect(connection:IsConnected())
+    expect(connection:Disconnect())
+    expect(not connection:IsConnected())
+end)
+
+test("Event once subscription", function()
+    local count = 0
+    EventManager:Once("Suite.Once", function() count += 1 end)
+    EventManager:Publish("Suite.Once")
+    EventManager:Publish("Suite.Once")
+    equal(count, 1)
+end)
+
+test("Event listener priority", function()
+    local order = {}
+    EventManager:Subscribe("Suite.Priority", function() order[#order + 1] = "low" end, { Priority = 1 })
+    EventManager:Subscribe("Suite.Priority", function() order[#order + 1] = "high" end, { Priority = 10 })
+    EventManager:Publish("Suite.Priority")
+    equal(order[1], "high")
+    equal(order[2], "low")
+end)
+
+test("Event callback failures are isolated", function()
+    EventManager:Subscribe("Suite.Errors", function() error("expected event failure") end)
+    EventManager:Subscribe("Suite.Errors", function() end)
+    local delivered, failed = EventManager:Publish("Suite.Errors")
+    equal(delivered, 1)
+    equal(failed, 1)
+end)
+
+test("Safe event publishing reports failures", function()
+    local ok, delivered, failed = EventManager:PublishSafe("Suite.Errors")
+    expect(not ok)
+    equal(delivered, 1)
+    equal(failed, 1)
+end)
+
+test("Event pause and resume", function()
+    local count = 0
+    EventManager:Subscribe("Suite.Pause", function() count += 1 end)
+    expect(EventManager:Pause("Suite.Pause"))
+    EventManager:Publish("Suite.Pause")
+    equal(count, 0)
+    expect(EventManager:Resume("Suite.Pause"))
+    EventManager:Publish("Suite.Pause")
+    equal(count, 1)
+end)
+
+test("Global event disable and enable", function()
+    local count = 0
+    EventManager:Subscribe("Suite.Enabled", function() count += 1 end)
+    EventManager:SetEnabled(false)
+    EventManager:Publish("Suite.Enabled")
+    equal(count, 0)
+    EventManager:SetEnabled(true)
+    EventManager:Publish("Suite.Enabled")
+    equal(count, 1)
+end)
+
+test("Event listener limit", function()
+    EventManager:SetMaximumListeners(1)
+    EventManager:Clear("Suite.Limit")
+    EventManager:Subscribe("Suite.Limit", function() end)
+    local connection = EventManager:Subscribe("Suite.Limit", function() end)
+    equal(connection, nil)
+    EventManager:SetMaximumListeners(100)
+end)
+
+test("Event history is bounded", function()
+    EventManager:SetHistoryLimit(2)
+    EventManager:Publish("Suite.History", 1)
+    EventManager:Publish("Suite.History", 2)
+    EventManager:Publish("Suite.History", 3)
+    equal(#EventManager:GetHistory(), 2)
+    EventManager:SetHistoryLimit(100)
+end)
+
+test("Event history filtering", function()
+    local history = EventManager:GetHistory("Suite.History")
+    equal(#history, 2)
+    equal(history[2].Arguments[1], 3)
+end)
+
+test("Event batch publishing", function()
+    local sum = 0
+    EventManager:Subscribe("Suite.Batch", function(value) sum += value end)
+    local delivered, failed = EventManager:EmitMany("Suite.Batch", {{1}, {2}, {3}})
+    equal(delivered, 3)
+    equal(failed, 0)
+    equal(sum, 6)
+end)
+
+test("Event names are sorted", function()
+    local names = EventManager:GetEventNames()
+    expect(#names > 0)
+    for index = 2, #names do expect(names[index - 1] <= names[index]) end
+end)
+
+test("Event statistics report activity", function()
+    local stats = EventManager:GetStatistics()
+    expect(stats.Published >= 1)
+    expect(stats.Subscriptions >= 1)
+    expect(stats.Delivered >= 1)
+end)
+
+test("Event clear removes listeners", function()
+    expect(EventManager:Clear("Suite.Ready"))
+    equal(EventManager:GetListenerCount("Suite.Ready"), 0)
+end)
+
+test("Event manager reset restores defaults", function()
+    EventManager:Reset()
+    expect(EventManager:IsEnabled())
+    equal(EventManager:GetMaximumListeners(), 100)
+    equal(EventManager:GetStatistics().Events, 0)
+end)
+
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
