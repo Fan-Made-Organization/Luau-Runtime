@@ -24,6 +24,7 @@ local ResourceManager = require("./resource_manager")
 local RuntimeDebugger = require("./runtime_debugger")
 local PerformanceMonitor = require("./performance_monitor")
 local TaskQueue = require("./task_queue")
+local InstanceManager = require("./instance_manager")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -89,6 +90,7 @@ Game.ResourceManager = ResourceManager
 Game.RuntimeDebugger = RuntimeDebugger
 Game.PerformanceMonitor = PerformanceMonitor
 Game.TaskQueue = TaskQueue
+Game.InstanceManager = InstanceManager
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -263,8 +265,17 @@ function Game:GetMemoryStatistics()
     return MemoryManager:GetStatistics()
 end
 
+-- Instance Manager
+function Game:RegisterInstance(instance, options)
+    return InstanceManager:Register(instance, options)
+end
+
+function Game:FindInstancesByName(name)
+    return InstanceManager:FindByName(name)
+end
+
 -- Performance Monitor
-function Game:MeasurePerformance(name, callback, ...)
+function Game:MeasurePerformance(name, callback, ... )
     return PerformanceMonitor:Measure(name, callback, ...)
 end
 
