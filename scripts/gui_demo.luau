@@ -41,5 +41,5 @@ input.Size = {0, 220, 0, 38}
 input.Position = {0, 22, 0, 180}
 input.Parent = panel
 
-GuiBridge.Export(screen, ".fmo_gui_snapshot.json")
+print("__FMO_GUI_SNAPSHOT__" .. GuiBridge.Export(screen))
 print("[FMO GUI] Interfaz exportada correctamente.")
