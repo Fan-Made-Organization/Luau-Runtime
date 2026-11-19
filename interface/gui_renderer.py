@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QIcon, QPen, QPainterPath
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap, QIcon, QPen, QPainterPath
 from PySide6.QtWidgets import (
     QWidget, QFrame, QPushButton, QLineEdit, QScrollArea,
 )
@@ -132,6 +132,9 @@ class FmoTextLabel(QWidget):
         self.font = QFont(self.font())
         self.font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
         self.font.setBold("bold" in str(props.get("Font", "")).lower())
+        self.text_scaled = props.get("TextScaled", False) is True
+        self.text_wrapped = props.get("TextWrapped", False) is True
+        self.text_color.setAlphaF(max(0.0, min(1.0, 1.0 - number(props.get("TextTransparency", 0)))))
         self.alignment = self._alignment(props)
         self.setStyleSheet(_widget_style(props, children or [], "#252936"))
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -154,9 +157,20 @@ class FmoTextLabel(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         painter.setPen(self.text_color)
-        painter.setFont(self.font)
-        painter.drawText(self.rect().adjusted(2, 1, -2, -1),
-                         self.alignment | Qt.TextFlag.TextWordWrap, self.text)
+        bounds = self.rect().adjusted(2, 1, -2, -1)
+        flags = self.alignment
+        if self.text_wrapped:
+            flags |= Qt.TextFlag.TextWordWrap
+        font = QFont(self.font)
+        if self.text_scaled:
+            while font.pointSize() > 6:
+                metrics = QFontMetrics(font)
+                measured = metrics.boundingRect(bounds, flags, self.text)
+                if measured.width() <= bounds.width() and measured.height() <= bounds.height():
+                    break
+                font.setPointSize(font.pointSize() - 1)
+        painter.setFont(font)
+        painter.drawText(bounds, flags, self.text)
 
 
 class FmoImageLabel(QWidget):
@@ -199,6 +213,11 @@ class FmoImageLabel(QWidget):
         else:
             painter.setOpacity(1.0 - self.transparency)
             painter.drawPixmap(target, self.pixmap)
+        if self.tint != QColor("#ffffff"):
+            painter.setOpacity(1.0)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Multiply)
+            painter.fillRect(target, self.tint)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
 
 class GuiRenderer:
@@ -342,6 +361,11 @@ class GuiRenderer:
                 font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
                 font.setBold("bold" in str(props.get("Font", "")).lower())
                 widget.setFont(font)
+                text_color = qcolor(props.get("TextColor3"), "#ffffff")
+                text_color.setAlphaF(max(0.0, min(1.0, 1.0 - number(props.get("TextTransparency", 0)))))
+                widget.setStyleSheet(
+                    f"QPushButton {{ {_widget_style(props, children, '#465f9e')} color:{text_color.name(QColor.NameFormat.HexArgb)}; padding:5px 10px; }}"
+                )
             else:
                 image_path = str(props.get("Image", ""))
                 if image_path and Path(image_path).is_file():
@@ -353,8 +377,11 @@ class GuiRenderer:
                                        self.event_handler(ident, "click", None))
         elif kind == "TextBox":
             widget.setEnabled(props.get("Active", True) is not False)
+            widget.setReadOnly(props.get("TextEditable", True) is False)
+            text_color = qcolor(props.get("TextColor3"), "#f2f4fa")
+            text_color.setAlphaF(max(0.0, min(1.0, 1.0 - number(props.get("TextTransparency", 0)))))
             widget.setStyleSheet(
-                f"QLineEdit {{ {_widget_style(props, children, '#303747')} color:{qcolor(props.get('TextColor3'), '#f2f4fa').name()}; padding:6px; }}"
+                f"QLineEdit {{ {_widget_style(props, children, '#303747')} color:{text_color.name(QColor.NameFormat.HexArgb)}; padding:6px; }}"
             )
             font = QFont(widget.font())
             font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
