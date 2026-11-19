@@ -43,6 +43,21 @@ function Scheduler:GetElapsedTime()
     return self._elapsed
 end
 
+function Scheduler:GetStatistics()
+    local serviceCount = 0
+
+    for _ in pairs(self._services) do
+        serviceCount += 1
+    end
+
+    return {
+        Running = self._running,
+        Frame = self._frame,
+        Elapsed = self._elapsed,
+        Services = serviceCount,
+    }
+end
+
 function Scheduler:Step(deltaTime)
     if not self._running then
         return false
