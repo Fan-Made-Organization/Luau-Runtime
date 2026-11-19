@@ -11,6 +11,11 @@ local PROPERTY_ALLOWLIST = {
     "Font", "Size", "Position", "AnchorPoint", "ZIndex",
     "BorderSizePixel", "CanvasSize", "ScrollingDirection",
     "AutomaticCanvasSize", "LayoutOrder", "Rotation",
+    "Image", "ImageColor3", "ImageTransparency", "ScaleType", "AutoButtonColor",
+    "CornerRadius", "Color", "Thickness", "Transparency", "ApplyStrokeMode",
+    "Scale", "FillDirection", "HorizontalAlignment", "VerticalAlignment",
+    "SortOrder", "Padding", "CellSize", "CellPadding", "StartCorner",
+    "ScrollBarThickness", "Offset",
 }
 
 local function safeValue(value, depth)
