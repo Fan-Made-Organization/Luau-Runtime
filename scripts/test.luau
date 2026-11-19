@@ -3079,6 +3079,146 @@ test("Resource Intelligence reset clears reports and counters", function()
     equal(ResourceIntelligence:GetStatistics().Scans, 0)
 end)
 
+
+--------------------------------------------------------
+-- 30AD. RESOURCE DEPENDENCY GRAPH
+--------------------------------------------------------
+
+section("30AD. RESOURCE DEPENDENCY GRAPH")
+
+local DependencyGraph = Game.ResourceDependencyGraph
+
+test("Dependency graph is exposed through Game", function()
+    expect(type(DependencyGraph) == "table")
+    expect(type(Game.BuildResourceDependencyGraph) == "function")
+    expect(type(Game.GetResourceDependencyImpact) == "function")
+    expect(type(Statistics:GetProviderData().ResourceDependencyGraph) == "table")
+end)
+
+test("Dependency graph builds nodes and edges", function()
+    ResourceManager:Reset()
+    ResourceManager:Register("graph-a", {})
+    ResourceManager:Register("graph-b", {})
+    ResourceManager:AddDependency("graph-a", "graph-b")
+    local ok, graph = Game:BuildResourceDependencyGraph()
+    expect(ok)
+    equal(graph.Metrics.NodeCount, 2)
+    equal(graph.Metrics.EdgeCount, 1)
+    expect(graph.IsAcyclic)
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph returns dependency-first topological order", function()
+    ResourceManager:Reset()
+    ResourceManager:Register("graph-app", {})
+    ResourceManager:Register("graph-core", {})
+    ResourceManager:AddDependency("graph-app", "graph-core")
+    local _, graph = DependencyGraph:Build()
+    equal(graph.TopologicalOrder[1], "graph-core")
+    equal(graph.TopologicalOrder[2], "graph-app")
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph detects cycles", function()
+    ResourceManager:Reset()
+    for _, id in ipairs({ "graph-a", "graph-b", "graph-c" }) do
+        ResourceManager:Register(id, {})
+    end
+    ResourceManager:AddDependency("graph-a", "graph-b")
+    ResourceManager:AddDependency("graph-b", "graph-c")
+    ResourceManager:AddDependency("graph-c", "graph-a")
+    local _, graph = DependencyGraph:Build()
+    expect(not graph.IsAcyclic)
+    expect(graph.Metrics.CycleCount >= 1)
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph detects dangling dependency edges", function()
+    ResourceManager:Reset()
+    ResourceManager:Register("graph-owner", {})
+    ResourceManager:Register("graph-dependency", {})
+    ResourceManager:AddDependency("graph-owner", "graph-dependency")
+    ResourceManager:Release("graph-dependency")
+    local _, graph = DependencyGraph:Build()
+    equal(graph.Metrics.MissingEdgeCount, 1)
+    equal(graph.MissingEdges[1].Resource, "graph-owner")
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph computes reverse impact", function()
+    ResourceManager:Reset()
+    for _, id in ipairs({ "graph-base", "graph-middle", "graph-top" }) do
+        ResourceManager:Register(id, {})
+    end
+    ResourceManager:AddDependency("graph-middle", "graph-base")
+    ResourceManager:AddDependency("graph-top", "graph-middle")
+    local impact = Game:GetResourceDependencyImpact("graph-base")
+    equal(#impact, 2)
+    equal(impact[1], "graph-middle")
+    equal(impact[2], "graph-top")
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph computes transitive dependency closure", function()
+    ResourceManager:Reset()
+    for _, id in ipairs({ "graph-app", "graph-lib", "graph-core" }) do
+        ResourceManager:Register(id, {})
+    end
+    ResourceManager:AddDependency("graph-app", "graph-lib")
+    ResourceManager:AddDependency("graph-lib", "graph-core")
+    local closure = DependencyGraph:GetDependencyClosure("graph-app")
+    equal(#closure, 2)
+    equal(closure[1], "graph-core")
+    equal(closure[2], "graph-lib")
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph returns nil for unknown resources", function()
+    ResourceManager:Reset()
+    local impact, err = DependencyGraph:GetImpact("missing-resource")
+    expect(impact == nil)
+    expect(type(err) == "string")
+end)
+
+test("Dependency graph snapshots are detached copies", function()
+    ResourceManager:Reset()
+    ResourceManager:Register("graph-copy", {})
+    local _, snapshot = DependencyGraph:Build()
+    snapshot.Nodes[1] = "tampered"
+    expect(DependencyGraph:GetLatest().Nodes[1] == "graph-copy")
+    ResourceManager:Reset()
+end)
+
+test("Dependency graph snapshot history is bounded", function()
+    DependencyGraph:Reset()
+    DependencyGraph:SetMaximumSnapshots(2)
+    DependencyGraph:Build()
+    local _, second = DependencyGraph:Build()
+    DependencyGraph:Build()
+    equal(#DependencyGraph._history, 2)
+    expect(DependencyGraph:GetSnapshot(second.Id) ~= nil)
+    DependencyGraph:Reset()
+end)
+
+test("Dependency graph validates snapshot limit", function()
+    expect(not pcall(function() DependencyGraph:SetMaximumSnapshots(0) end))
+    expect(not pcall(function() DependencyGraph:SetMaximumSnapshots(1.5) end))
+end)
+
+test("Dependency graph can be disabled", function()
+    DependencyGraph:SetEnabled(false)
+    local ok = DependencyGraph:Build()
+    expect(not ok)
+    DependencyGraph:SetEnabled(true)
+end)
+
+test("Dependency graph reset clears history and statistics", function()
+    DependencyGraph:Build()
+    DependencyGraph:Reset()
+    equal(DependencyGraph:GetStatistics().Builds, 0)
+    equal(DependencyGraph:GetStatistics().Snapshots, 0)
+end)
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
