@@ -1903,6 +1903,142 @@ test("Memory manager reset restores defaults", function()
 end)
 
 --------------------------------------------------------
+-- 30AA. MANAGED GARBAGE COLLECTOR
+--------------------------------------------------------
+
+section("30AA. MANAGED GARBAGE COLLECTOR")
+
+local GarbageCollector = Game.GarbageCollector
+
+test("GarbageCollector is integrated", function()
+    expect(type(GarbageCollector) == "table")
+    expect(type(Game.TrackManagedObject) == "function")
+    expect(type(Game.CollectGarbage) == "function")
+    expect(type(Game.AddManagedReference) == "function")
+    expect(type(Game.SetManagedRoot) == "function")
+end)
+
+test("Garbage collector tracks managed objects", function()
+    GarbageCollector:Reset()
+    local ok = GarbageCollector:Track("gc-root", { Value = 10 }, { Root = true })
+    expect(ok)
+    expect(GarbageCollector:Contains("gc-root"))
+    equal(GarbageCollector:Get("gc-root").Value, 10)
+    expect(GarbageCollector:IsRoot("gc-root"))
+end)
+
+test("Mark phase preserves roots and reachable references", function()
+    GarbageCollector:Reset()
+    GarbageCollector:Track("gc-a", "A", { Root = true })
+    GarbageCollector:Track("gc-b", "B")
+    GarbageCollector:Track("gc-dead", "DEAD")
+    expect(GarbageCollector:AddReference("gc-a", "gc-b"))
+    local ok, report = GarbageCollector:Collect()
+    expect(ok)
+    equal(report.Collected, 1)
+    expect(GarbageCollector:Contains("gc-a"))
+    expect(GarbageCollector:Contains("gc-b"))
+    expect(not GarbageCollector:Contains("gc-dead"))
+end)
+
+test("Unreachable reference cycles are collected", function()
+    GarbageCollector:Reset()
+    GarbageCollector:Track("gc-cycle-a", {})
+    GarbageCollector:Track("gc-cycle-b", {})
+    GarbageCollector:AddReference("gc-cycle-a", "gc-cycle-b")
+    GarbageCollector:AddReference("gc-cycle-b", "gc-cycle-a")
+    local ok, report = GarbageCollector:Collect()
+    expect(ok)
+    equal(report.Collected, 2)
+    equal(GarbageCollector:GetCount(), 0)
+end)
+
+test("Removing a root makes its object collectible", function()
+    GarbageCollector:Reset()
+    GarbageCollector:Track("gc-unroot", {}, { Root = true })
+    expect(GarbageCollector:SetRoot("gc-unroot", false))
+    local ok, report = GarbageCollector:Collect()
+    expect(ok)
+    equal(report.Collected, 1)
+end)
+
+test("Finalizers run once before collection", function()
+    GarbageCollector:Reset()
+    local finalized = 0
+    GarbageCollector:Track("gc-finalize", "payload", {
+        Finalize = function(value, id)
+            equal(value, "payload")
+            equal(id, "gc-finalize")
+            finalized += 1
+        end,
+    })
+    local ok, report = GarbageCollector:Collect()
+    expect(ok)
+    equal(report.Collected, 1)
+    equal(finalized, 1)
+    GarbageCollector:Collect()
+    equal(finalized, 1)
+end)
+
+test("Failed finalizers retain the object for safe retry", function()
+    GarbageCollector:Reset()
+    GarbageCollector:Track("gc-finalizer-error", {}, {
+        Finalize = function()
+            error("expected finalizer failure")
+        end,
+    })
+    local ok, report = GarbageCollector:Collect()
+    expect(ok)
+    equal(report.Collected, 0)
+    equal(#report.Failed, 1)
+    expect(GarbageCollector:Contains("gc-finalizer-error"))
+    expect(GarbageCollector:GetStatistics().FinalizerErrors >= 1)
+end)
+
+test("Collection releases linked logical memory allocations", function()
+    GarbageCollector:Reset()
+    MemoryManager:Reset()
+    expect(MemoryManager:Allocate("gc-memory", 512))
+    GarbageCollector:Track("gc-memory-object", {}, {
+        MemoryAllocationId = "gc-memory",
+    })
+    local ok, report = GarbageCollector:Collect()
+    expect(ok)
+    equal(report.Collected, 1)
+    expect(not MemoryManager:HasAllocation("gc-memory"))
+    equal(MemoryManager:GetTotalBytes(), 0)
+end)
+
+test("Automatic collection is opt-in and threshold controlled", function()
+    GarbageCollector:Reset()
+    GarbageCollector:SetAutomaticThreshold(2)
+    GarbageCollector:SetAutomaticInterval(0)
+    GarbageCollector:SetAutomaticEnabled(true)
+    GarbageCollector:Track("gc-auto-a", {})
+    GarbageCollector:Track("gc-auto-b", {})
+    local ok, report = GarbageCollector:Step(10)
+    expect(ok)
+    equal(report.Collected, 2)
+    equal(GarbageCollector:GetStatistics().AutomaticCollections, 1)
+    GarbageCollector:Reset()
+end)
+
+test("Garbage collector validates references and exposes statistics", function()
+    GarbageCollector:Reset()
+    GarbageCollector:Track("gc-valid-root", {}, { Root = true })
+    GarbageCollector:Track("gc-valid-child", {})
+    GarbageCollector:AddReference("gc-valid-root", "gc-valid-child")
+    local ok, details = GarbageCollector:Validate()
+    expect(ok)
+    equal(details.ObjectCount, 2)
+    equal(details.RootCount, 1)
+    local providers = Statistics:GetProviderData()
+    expect(type(providers.GarbageCollector) == "table")
+    expect(providers.GarbageCollector.ObjectCount == 2)
+    GarbageCollector:Reset()
+end)
+
+--------------------------------------------------------
 -- 30B. EVENT MANAGER
 --------------------------------------------------------
 
