@@ -1,6 +1,6 @@
 --[[
 ========================================================
-             FMO LUAU RUNTIME
+             LUAU RUNTIME
                 SUPER TEST
                   VERSION 1.0
 ========================================================
@@ -156,7 +156,7 @@ end
 
 print("")
 print("========================================================")
-print("             FMO LUAU RUNTIME")
+print("             LUAU RUNTIME")
 print("                SUPER TEST 1.3")
 print("========================================================")
 print("")
@@ -1744,7 +1744,7 @@ local elapsed = os.clock() - startTime
 print("")
 print("")
 print("========================================================")
-print("             FMO LUAU RUNTIME")
+print("             LUAU RUNTIME")
 print("              FINAL TEST REPORT")
 print("========================================================")
 print("")
@@ -1790,7 +1790,7 @@ else
     print("       SOME TESTS NEED ATTENTION.")
 end
 
-print("       FMO LUAU RUNTIME - SUPER TEST 1.3")
+print("       LUAU RUNTIME - SUPER TEST 1.3")
 line()
 
 print("")
@@ -1802,7 +1802,7 @@ print("[Runtime] Test execution finished.")
 if failedTests > 0 then
     error(
         string.format(
-            "FMO Super Test failed: %d of %d tests failed",
+            "Luau Super Test failed: %d of %d tests failed",
             failedTests,
             totalTests
         ),
