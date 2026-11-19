@@ -255,6 +255,36 @@ test("GetFullName", function()
     expect(type(testPart:GetFullName()) == "string")
 end)
 
+test("TextButton exposes GUI input signals", function()
+    local button = Instance.new("TextButton")
+    expect(type(button.MouseButton1Click) == "table")
+    expect(type(button.Activated) == "table")
+    button:Destroy()
+end)
+
+test("TextButton click signal invokes connected callbacks", function()
+    local button = Instance.new("TextButton")
+    local clicks = 0
+    button.MouseButton1Click:Connect(function() clicks += 1 end)
+    button.MouseButton1Click:Fire()
+    equal(clicks, 1)
+    button:Destroy()
+end)
+
+test("TextBox exposes focus signals", function()
+    local box = Instance.new("TextBox")
+    expect(type(box.FocusLost) == "table")
+    expect(type(box.Focused) == "table")
+    box:Destroy()
+end)
+
+test("GUI input signals are destroyed with their Instance", function()
+    local button = Instance.new("TextButton")
+    local signal = button.MouseButton1Click
+    button:Destroy()
+    expect(signal:IsDestroyed())
+end)
+
 test("Instance attributes", function()
     testPart:SetAttribute("FMOTest", true)
 
