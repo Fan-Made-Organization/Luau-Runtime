@@ -173,14 +173,6 @@ local gridCard = create("Frame", panel, {
     BackgroundColor3 = {36, 43, 59},
 })
 create("UICorner", gridCard, {CornerRadius = {0, 10}})
-create("TextLabel", gridCard, {
-    Text = "GRID LAYOUT",
-    TextSize = 12,
-    Font = "GothamBold",
-    TextColor3 = {225, 231, 245},
-    Size = {0, 220, 0, 24},
-    Position = {0, 12, 0, 8},
-})
 local grid = Instance.new("UIGridLayout")
 grid.CellSize = {0, 100, 0, 42}
 grid.CellPadding = {0, 8, 0, 8}
