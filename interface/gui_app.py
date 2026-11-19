@@ -124,10 +124,8 @@ class SimulatorWindow(QMainWindow):
 def run_script(script: Path, snapshot: Path):
     if not LUAU.is_file():
         raise RuntimeError(f"Luau CLI not found: {LUAU}\nSet FMO_LUAU_PATH to your Luau executable.")
-    env = os.environ.copy()
-    env["FMO_GUI_OUTPUT"] = str(snapshot)
     result = subprocess.run(
-        [str(LUAU), str(script)], cwd=ROOT, env=env,
+        [str(LUAU), str(script)], cwd=ROOT,
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
     )
     if result.stdout:
@@ -154,12 +152,14 @@ def main():
     app = QApplication(sys.argv[:1])
     app.setApplicationName("FMO Script GUI Simulator")
     with tempfile.TemporaryDirectory(prefix="fmo-gui-") as directory:
-        snapshot = Path(directory) / "gui.json"
+        snapshot = ROOT / ".fmo_gui_snapshot.json"
         try:
             run_script(script, snapshot)
             window = SimulatorWindow(snapshot, script)
             window.show()
             return app.exec()
+        finally:
+            snapshot.unlink(missing_ok=True)
         except Exception as error:
             print(f"[FMO GUI] {error}", file=sys.stderr)
             return 1
