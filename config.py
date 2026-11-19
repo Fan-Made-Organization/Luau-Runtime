@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 # ==========================================
-# FMO LUAU RUNTIME
+# LUAU RUNTIME
 # CONFIGURATION SYSTEM
 # ==========================================
 
