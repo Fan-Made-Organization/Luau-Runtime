@@ -45,6 +45,27 @@ def pair(value, fallback=(0, 0)):
     return fallback
 
 
+def apply_font(font, value):
+    name = str(value or "").lower()
+    families = {
+        "gotham": "Gotham",
+        "sourcesans": "Source Sans 3",
+        "arial": "Arial",
+        "code": "Monospace",
+        "roboto": "Roboto",
+        "ubuntu": "Ubuntu",
+        "cartoon": "Comic Sans MS",
+        "sci-fi": "Orbitron",
+        "fantasy": "Papyrus",
+    }
+    for key, family in families.items():
+        if key in name:
+            font.setFamily(family)
+            break
+    font.setBold("bold" in name)
+    font.setItalic("italic" in name)
+
+
 def dimensions(value, parent_size, fallback=(180, 40)):
     if isinstance(value, (list, tuple)) and len(value) >= 4:
         return (
@@ -131,7 +152,7 @@ class FmoTextLabel(QWidget):
         self.text_color = qcolor(props.get("TextColor3"), "#f0f0f5")
         self.font = QFont(self.font())
         self.font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
-        self.font.setBold("bold" in str(props.get("Font", "")).lower())
+        apply_font(self.font, props.get("Font", ""))
         self.text_scaled = props.get("TextScaled", False) is True
         self.text_wrapped = props.get("TextWrapped", False) is True
         self.text_color.setAlphaF(max(0.0, min(1.0, 1.0 - number(props.get("TextTransparency", 0)))))
@@ -274,9 +295,18 @@ class GuiRenderer:
         elif layout_kind == "UIGridLayout":
             cell_w, cell_h = dimensions(props.get("CellSize"), (width, height), (100, 80))
             pad_x, pad_y = dimensions(props.get("CellPadding"), (width, height), (8, 8))
+            horizontal_fill = str(props.get("FillDirection", "Horizontal")).lower() != "vertical"
             cols = max(1, (width + pad_x) // max(1, cell_w + pad_x))
+            rows = max(1, (height + pad_y) // max(1, cell_h + pad_y))
             for index, item in enumerate(items):
-                row, col = divmod(index, cols)
+                if horizontal_fill:
+                    row, col = divmod(index, cols)
+                else:
+                    col, row = divmod(index, rows)
+                if str(props.get("StartCorner", "TopLeft")).lower() in {"topright", "bottomright"}:
+                    col = max(0, cols - 1 - col)
+                if str(props.get("StartCorner", "TopLeft")).lower() in {"bottomleft", "bottomright"}:
+                    row = max(0, rows - 1 - row)
                 result[item.get("id")] = (col * (cell_w + pad_x), row * (cell_h + pad_y), cell_w, cell_h)
         return result
 
@@ -359,7 +389,7 @@ class GuiRenderer:
             if kind == "TextButton":
                 font = QFont(widget.font())
                 font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
-                font.setBold("bold" in str(props.get("Font", "")).lower())
+                apply_font(font, props.get("Font", ""))
                 widget.setFont(font)
                 text_color = qcolor(props.get("TextColor3"), "#ffffff")
                 text_color.setAlphaF(max(0.0, min(1.0, 1.0 - number(props.get("TextTransparency", 0)))))
@@ -385,6 +415,7 @@ class GuiRenderer:
             )
             font = QFont(widget.font())
             font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
+            apply_font(font, props.get("Font", ""))
             widget.setFont(font)
             target = node.get("id")
             if target:
