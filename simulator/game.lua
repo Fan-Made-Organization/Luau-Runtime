@@ -320,17 +320,40 @@ function Game:Step(deltaTime)
 
     local totalTimer = RuntimeStatistics:BeginMeasure("Game.Step")
 
-    local schedulerTimer = RuntimeStatistics:BeginMeasure("Scheduler.Step")
-    local schedulerResult = Scheduler:Step(deltaTime)
-    RuntimeStatistics:EndMeasure(schedulerTimer)
+    local stepResult = RuntimeProfiler:Measure("Game.Step", function()
+        local schedulerTimer = RuntimeStatistics:BeginMeasure("Scheduler.Step")
+        local schedulerResult = RuntimeProfiler:Measure(
+            "Scheduler.Step",
+            function()
+                return Scheduler:Step(deltaTime)
+            end
+        )
+        RuntimeStatistics:EndMeasure(schedulerTimer)
 
-    local physicsTimer = RuntimeStatistics:BeginMeasure("Physics.Step")
-    local physicsResult = Physics:Step(deltaTime)
-    RuntimeStatistics:EndMeasure(physicsTimer)
+        local physicsTimer = RuntimeStatistics:BeginMeasure("Physics.Step")
+        local physicsResult = RuntimeProfiler:Measure(
+            "Physics.Step",
+            function()
+                return Physics:Step(deltaTime)
+            end
+        )
+        RuntimeStatistics:EndMeasure(physicsTimer)
 
-    local collisionTimer = RuntimeStatistics:BeginMeasure("Collision.Step")
-    local collisionResult = CollisionService:Step()
-    RuntimeStatistics:EndMeasure(collisionTimer)
+        local collisionTimer = RuntimeStatistics:BeginMeasure("Collision.Step")
+        local collisionResult = RuntimeProfiler:Measure(
+            "Collision.Step",
+            function()
+                return CollisionService:Step()
+            end
+        )
+        RuntimeStatistics:EndMeasure(collisionTimer)
+
+        return {
+            Scheduler = schedulerResult,
+            Physics = physicsResult,
+            Collisions = collisionResult,
+        }
+    end)
 
     RuntimeStatistics:Increment("Frames")
     RuntimeStatistics:Increment("SchedulerSteps")
@@ -341,11 +364,7 @@ function Game:Step(deltaTime)
 
     RuntimeStatistics:EndMeasure(totalTimer)
 
-    return {
-        Scheduler = schedulerResult,
-        Physics = physicsResult,
-        Collisions = collisionResult,
-    }
+    return stepResult
 end
 
 return Game
