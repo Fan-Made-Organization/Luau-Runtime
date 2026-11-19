@@ -2,3 +2,16 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+logs/
+*.log
+coverage.out
+callgrind.out
+profile.out
+trace.json
+build/
+dist/
+.DS_Store
+Thumbs.db

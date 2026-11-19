@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 import os
 import subprocess
 
@@ -12,8 +13,13 @@ class LuauInterpreter:
         self.executable = Path(executable or LUAU_EXECUTABLE).expanduser()
         self.timeout = EXECUTION_TIMEOUT if timeout is None else timeout
 
-        if not isinstance(self.timeout, (int, float)) or self.timeout <= 0:
-            raise ValueError("Execution timeout must be a positive number")
+        if (
+            isinstance(self.timeout, bool)
+            or not isinstance(self.timeout, (int, float))
+            or not math.isfinite(self.timeout)
+            or self.timeout <= 0
+        ):
+            raise ValueError("Execution timeout must be a finite positive number")
 
     @staticmethod
     def _decode_output(value):

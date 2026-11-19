@@ -32,6 +32,9 @@ jobs:
       - name: Validate Python sources
         run: python -m compileall -q .
 
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tests -v
+
       - name: Build official Luau CLI
         shell: bash
         run: |
