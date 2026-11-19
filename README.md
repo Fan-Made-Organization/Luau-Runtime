@@ -37,10 +37,10 @@ The `Game` facade exposes common entry points, and runtime statistics now includ
 - The UPDATE 1.2 hardening suite passed 158/158 tests in GitHub Actions before merging into `Runtime`.
 - UPDATE 1.3 adds `RuntimeProfiler`, integrated with `Game` and runtime statistics. It supports named timing scopes, callback measurements, bounded samples, sorted reports, and profile lifecycle controls.
 
-## FMO Script GUI Simulator (initial renderer)
+## FMO Script GUI Simulator (interactive prototype)
 
-The project includes an experimental desktop renderer for GUI trees created with the simulated
-Instance classes. It is a local compatibility/simulation tool, not a Roblox client or executor.
+The desktop simulator renders GUI trees created by Luau scripts using the simulated Instance
+classes. It is a local compatibility/simulation tool, not a Roblox client or executor.
 
 Install the desktop dependency on Arch Linux:
 
@@ -54,25 +54,48 @@ Or install the Python dependency in your environment:
 python3 -m pip install -r requirements.txt
 ```
 
-Launch the demo:
+Launch the interactive demo:
 
 ```bash
 python3 gui.py
 ```
 
-Launch another compatible script:
+Launch any other compatible script:
 
 ```bash
 python3 gui.py scripts/my_gui.luau
 ```
 
-Scripts currently build their UI with `Game.Instance` and export a snapshot with
-`GuiBridge.Export(screenGui, outputPath)`. The included `scripts/gui_demo.luau` demonstrates
-the required pattern. This first renderer supports ScreenGui roots, Frames, TextLabels,
-TextButtons, TextBoxes and basic ScrollingFrames with offset-based sizing and positioning.
-It currently renders a snapshot after script execution: live callback round-tripping,
-automatic script watching, dynamic property updates, and full Roblox UDim2/Color3/Enum
-compatibility are not implemented yet and are planned for subsequent milestones.
+A GUI script creates Instances, connects callbacks to supported GUI signals, and exports its
+root ScreenGui. Example:
+
+```lua
+local Game = require("../simulator/game")
+local GuiBridge = require("../simulator/gui_bridge")
+local Instance = Game.Instance
+
+local screen = Instance.new("ScreenGui")
+local button = Instance.new("TextButton")
+button.Text = "Click me"
+button.Parent = screen
+
+button.MouseButton1Click:Connect(function()
+    button.Text = "Clicked!"
+end)
+
+print("__FMO_GUI_SNAPSHOT__" .. GuiBridge.Export(screen))
+```
+
+Supported desktop widgets currently include Frames, TextLabels, TextButtons, TextBoxes, and
+basic ScrollingFrames. TextButton click events and TextBox focus-loss events are bridged back
+to Luau callbacks. To keep the CLI sandbox independent of host IO, each interaction currently
+replays the script in a fresh Luau process, dispatches the requested event, and returns an
+updated snapshot. Consequently, Lua variables and in-memory state are recreated on each event;
+persist state externally if a script needs it between interactions.
+
+The renderer currently uses offset-style `{scaleX, offsetX, scaleY, offsetY}` arrays for
+Size/Position and does not implement full Roblox UDim2, Color3, Enum, layout, tweening,
+automatic file watching, or a persistent Luau VM. These are planned compatibility milestones.
 
 ## Features
 
@@ -139,7 +162,7 @@ You need:
 2. The Luau command-line interpreter.
 3. Git (only if you want to clone the repository instead of downloading the ZIP).
 
-No additional Python packages are currently required.
+The GUI simulator requires PySide6. On Arch Linux install it with `sudo pacman -S pyside6`; other environments can use `python3 -m pip install -r requirements.txt`.
 
 ## 1. Install Python 3
 
