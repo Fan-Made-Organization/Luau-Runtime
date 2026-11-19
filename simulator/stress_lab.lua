@@ -1,4 +1,5 @@
 -- Bounded, opt-in stress harness. Every callback is protected and iteration-limited.
+local Snapshot = require("./snapshot")
 local StressLab={Enabled=true,MaximumIterations=100000,HistoryLimit=50,_history={},_sequence=0}
 function StressLab:Run(name,callback,iterations,...)
  if not self.Enabled then return false,"Stress Lab disabled" end
@@ -11,10 +12,10 @@ function StressLab:Run(name,callback,iterations,...)
  local elapsed=os.clock()-started;self._sequence+=1
  local report={Id=self._sequence,Name=name,Iterations=iterations,Completed=iterations-failures,Failures=failures,Elapsed=elapsed,FirstError=firstError}
  self._history[#self._history+1]=report;while #self._history>self.HistoryLimit do table.remove(self._history,1) end
- return true,report
+ return true,Snapshot.Clone(report)
 end
-function StressLab:GetLatest() return self._history[#self._history] end
-function StressLab:GetHistory() local out={};for i,v in ipairs(self._history) do out[i]=v end;return out end
+function StressLab:GetLatest() return Snapshot.Clone(self._history[#self._history]) end
+function StressLab:GetHistory() return Snapshot.Array(self._history) end
 function StressLab:SetMaximumIterations(n) if type(n)~="number" or n<1 or n%1~=0 then error("Maximum iterations must be positive integer",2) end;self.MaximumIterations=n end
 function StressLab:SetHistoryLimit(n) if type(n)~="number" or n<1 or n%1~=0 then error("History limit must be positive integer",2) end;self.HistoryLimit=n;while #self._history>n do table.remove(self._history,1) end end
 function StressLab:SetEnabled(v) self.Enabled=v==true;return self.Enabled end
