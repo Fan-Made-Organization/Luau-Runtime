@@ -17,6 +17,7 @@ local RuntimeEnvironment = require("./runtime_environment")
 local ErrorHandler = require("./error_handler")
 local ScriptSandbox = require("./script_sandbox")
 local RuntimeStatistics = require("./runtime_statistics")
+local RuntimeProfiler = require("./runtime_profiler")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -75,6 +76,7 @@ Game.Environment = RuntimeEnvironment.GetDefault()
 Game.ErrorHandler = ErrorHandler
 Game.ScriptSandbox = ScriptSandbox
 Game.RuntimeStatistics = RuntimeStatistics
+Game.RuntimeProfiler = RuntimeProfiler
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -87,6 +89,10 @@ Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
 
 -- Proveedores de estadísticas
+RuntimeStatistics:RegisterProvider("RuntimeProfiler", function()
+    return RuntimeProfiler:GetStatistics()
+end)
+
 RuntimeStatistics:RegisterProvider("RuntimeManager", function()
     return RuntimeManager:GetStatistics()
 end)
@@ -206,6 +212,23 @@ end
 
 function Game:GetErrorStatistics()
     return ErrorHandler:GetStatistics()
+end
+
+-- Runtime Profiler
+function Game:BeginProfile(name)
+    return RuntimeProfiler:Begin(name)
+end
+
+function Game:EndProfile(token)
+    return RuntimeProfiler:End(token)
+end
+
+function Game:Profile(name, callback, ...)
+    return RuntimeProfiler:Measure(name, callback, ...)
+end
+
+function Game:GetProfileReport()
+    return RuntimeProfiler:GetReport()
 end
 
 -- Runtime Statistics
