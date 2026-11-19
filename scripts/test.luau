@@ -2180,6 +2180,7 @@ test("Memory profiler rejects invalid configuration and comparisons", function()
     expect(not pcall(function() MemoryProfiler:SetTopLimit(1.5) end))
     local ok = MemoryProfiler:Compare(100, 101)
     expect(not ok)
+    MemoryProfiler:Capture("invalid-breakdown")
     expect(not pcall(function() MemoryProfiler:GetBreakdown(nil, "Unknown") end))
 end)
 
