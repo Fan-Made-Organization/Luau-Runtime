@@ -1,4 +1,5 @@
 -- Deterministic callback benchmark harness; no external commands or IO.
+local Snapshot = require("./snapshot")
 local Benchmark={Enabled=true,MaximumIterations=100000,HistoryLimit=50,_history={},_sequence=0}
 function Benchmark:Run(name,callback,iterations,...)
  if not self.Enabled then return false,"Benchmark engine disabled" end
@@ -10,12 +11,12 @@ function Benchmark:Run(name,callback,iterations,...)
  for i=1,iterations do local ok,result=pcall(function() return callback(table.unpack(args,1,args.n)) end);if ok then last=result else failures+=1 end end
  local elapsed=os.clock()-start
  self._sequence+=1
- local result={Id=self._sequence,Name=name,Iterations=iterations,Elapsed=elapsed,Average=elapsed/iterations,OperationsPerSecond=elapsed>0 and iterations/elapsed or math.huge,Failures=failures,LastResult=last}
+ local result={Id=self._sequence,Name=name,Iterations=iterations,Elapsed=elapsed,Average=elapsed/iterations,OperationsPerSecond=elapsed>0 and iterations/elapsed or math.huge,Failures=failures,LastResult=Snapshot.Clone(last)}
  self._history[#self._history+1]=result;while #self._history>self.HistoryLimit do table.remove(self._history,1) end
- return true,result
+ return true,Snapshot.Clone(result)
 end
-function Benchmark:GetHistory() local out={};for i,v in ipairs(self._history) do out[i]=v end;return out end
-function Benchmark:GetLatest() return self._history[#self._history] end
+function Benchmark:GetHistory() return Snapshot.Array(self._history) end
+function Benchmark:GetLatest() return Snapshot.Clone(self._history[#self._history]) end
 function Benchmark:SetMaximumIterations(n) if type(n)~="number" or n<1 or n%1~=0 then error("Maximum iterations must be positive integer",2) end;self.MaximumIterations=n end
 function Benchmark:SetHistoryLimit(n) if type(n)~="number" or n<1 or n%1~=0 then error("History limit must be positive integer",2) end;self.HistoryLimit=n;while #self._history>n do table.remove(self._history,1) end end
 function Benchmark:SetEnabled(v) self.Enabled=v==true;return self.Enabled end
