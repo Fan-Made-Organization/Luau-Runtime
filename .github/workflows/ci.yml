@@ -1,0 +1,32 @@
+name: FMO Luau Runtime CI
+
+on:
+  push:
+    branches: [Runtime]
+  pull_request:
+    branches: [Runtime]
+
+jobs:
+  super-test:
+    name: Build official Luau and run Super Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout FMO Luau Runtime
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate Python sources
+        run: python -m compileall -q config.py main.py engine
+
+      - name: Build official Luau CLI
+        run: |
+          git clone --depth 1 https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
+          cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau/build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/luau/build" --target Luau.Repl.CLI --parallel 2
+
+      - name: Run FMO Super Test 1.1
+        run: "$RUNNER_TEMP/luau/build/luau" scripts/test.luau
