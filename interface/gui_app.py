@@ -7,14 +7,15 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QApplication, QFrame, QLabel, QLineEdit, QMainWindow, QPushButton,
-    QScrollArea, QSizePolicy, QWidget,
+    QScrollArea, QWidget,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 LUAU = Path(os.environ.get("FMO_LUAU_PATH", Path.home() / "luau/build/luau")).expanduser()
+SNAPSHOT_MARKER = "__FMO_GUI_SNAPSHOT__"
 
 
 def number(value, fallback=0):
@@ -99,13 +100,13 @@ class GuiRenderer:
         x, y = position(props.get("Position"))
         widget.setGeometry(x, y, width, height)
         widget.show()
-        if kind not in ("ScrollingFrame",):
+        if kind != "ScrollingFrame":
             child_parent = widget
         self.render_children(child_parent, node.get("children", []))
 
 
 class SimulatorWindow(QMainWindow):
-    def __init__(self, snapshot_path: Path, script_path: Path):
+    def __init__(self, data: dict, script_path: Path):
         super().__init__()
         self.setWindowTitle(f"FMO Script GUI Simulator — {script_path.name}")
         self.resize(900, 650)
@@ -114,30 +115,42 @@ class SimulatorWindow(QMainWindow):
         self.canvas = QWidget()
         self.canvas.setStyleSheet("background:#202430;")
         self.setCentralWidget(self.canvas)
-        data = json.loads(snapshot_path.read_text(encoding="utf-8"))
-        self.setWindowTitle(f"FMO Script GUI Simulator — {data.get('properties', {}).get('Name', script_path.stem)}")
+        self.setWindowTitle(
+            f"FMO Script GUI Simulator — {data.get('properties', {}).get('Name', script_path.stem)}"
+        )
         self.renderer = GuiRenderer(self.canvas)
         self.renderer.render_children(self.canvas, data.get("children", []))
 
 
-def run_script(script: Path, snapshot: Path):
+def run_script(script: Path) -> dict:
     if not LUAU.is_file():
         raise RuntimeError(f"Luau CLI not found: {LUAU}\nSet FMO_LUAU_PATH to your Luau executable.")
     result = subprocess.run(
         [str(LUAU), str(script)], cwd=ROOT,
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
     )
-    if result.stdout:
-        print(result.stdout, end="")
+    snapshot_data = None
+    ordinary_output = []
+    for line in result.stdout.splitlines():
+        if line.startswith(SNAPSHOT_MARKER):
+            try:
+                snapshot_data = json.loads(line[len(SNAPSHOT_MARKER):])
+            except json.JSONDecodeError as error:
+                raise RuntimeError(f"Invalid GUI snapshot JSON: {error}") from error
+        elif line:
+            ordinary_output.append(line)
+    if ordinary_output:
+        print("\n".join(ordinary_output))
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
     if result.returncode:
         raise RuntimeError(f"Script exited with code {result.returncode}")
-    if not snapshot.is_file():
+    if snapshot_data is None:
         raise RuntimeError(
-            "The script did not export a GUI snapshot. See scripts/gui_demo.luau "
-            "for the required GuiBridge.Export(root, path) call."
+            "The script did not export a GUI snapshot. Add "
+            "print('__FMO_GUI_SNAPSHOT__' .. GuiBridge.Export(screen))."
         )
+    return snapshot_data
 
 
 def main():
@@ -150,17 +163,14 @@ def main():
 
     app = QApplication(sys.argv[:1])
     app.setApplicationName("FMO Script GUI Simulator")
-    snapshot = ROOT / ".fmo_gui_snapshot.json"
     try:
-        run_script(script, snapshot)
-        window = SimulatorWindow(snapshot, script)
+        data = run_script(script)
+        window = SimulatorWindow(data, script)
         window.show()
         return app.exec()
     except Exception as error:
         print(f"[FMO GUI] {error}", file=sys.stderr)
         return 1
-    finally:
-        snapshot.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
