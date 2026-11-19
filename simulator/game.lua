@@ -19,6 +19,7 @@ local ScriptSandbox = require("./script_sandbox")
 local RuntimeStatistics = require("./runtime_statistics")
 local RuntimeProfiler = require("./runtime_profiler")
 local MemoryManager = require("./memory_manager")
+local MemoryProfiler = require("./memory_profiler")
 local EventManager = require("./event_manager")
 local ResourceManager = require("./resource_manager")
 local RuntimeDebugger = require("./runtime_debugger")
@@ -86,6 +87,7 @@ Game.ScriptSandbox = ScriptSandbox
 Game.RuntimeStatistics = RuntimeStatistics
 Game.RuntimeProfiler = RuntimeProfiler
 Game.MemoryManager = MemoryManager
+Game.MemoryProfiler = MemoryProfiler
 Game.EventManager = EventManager
 Game.ResourceManager = ResourceManager
 Game.RuntimeDebugger = RuntimeDebugger
@@ -123,6 +125,10 @@ end)
 
 RuntimeStatistics:RegisterProvider("MemoryManager", function()
     return MemoryManager:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("MemoryProfiler", function()
+    return MemoryProfiler:GetSummary()
 end)
 
 RuntimeStatistics:RegisterProvider("GarbageCollector", function()
@@ -286,6 +292,18 @@ end
 
 function Game:GetMemoryStatistics()
     return MemoryManager:GetStatistics()
+end
+
+function Game:CaptureMemorySnapshot(label)
+    return MemoryProfiler:Capture(label)
+end
+
+function Game:CompareMemorySnapshots(fromId, toId)
+    return MemoryProfiler:Compare(fromId, toId)
+end
+
+function Game:GetMemoryProfile()
+    return MemoryProfiler:GetSummary()
 end
 
 -- Instance Manager
