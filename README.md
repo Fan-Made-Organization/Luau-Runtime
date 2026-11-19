@@ -37,6 +37,43 @@ The `Game` facade exposes common entry points, and runtime statistics now includ
 - The UPDATE 1.2 hardening suite passed 158/158 tests in GitHub Actions before merging into `Runtime`.
 - UPDATE 1.3 adds `RuntimeProfiler`, integrated with `Game` and runtime statistics. It supports named timing scopes, callback measurements, bounded samples, sorted reports, and profile lifecycle controls.
 
+## FMO Script GUI Simulator (initial renderer)
+
+The project includes an experimental desktop renderer for GUI trees created with the simulated
+Instance classes. It is a local compatibility/simulation tool, not a Roblox client or executor.
+
+Install the desktop dependency on Arch Linux:
+
+```bash
+sudo pacman -S python-pyside6
+```
+
+Or install the Python dependency in your environment:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+Launch the demo:
+
+```bash
+python3 gui.py
+```
+
+Launch another compatible script:
+
+```bash
+python3 gui.py scripts/my_gui.luau
+```
+
+Scripts currently build their UI with `Game.Instance` and export a snapshot with
+`GuiBridge.Export(screenGui, outputPath)`. The included `scripts/gui_demo.luau` demonstrates
+the required pattern. This first renderer supports ScreenGui roots, Frames, TextLabels,
+TextButtons, TextBoxes and basic ScrollingFrames with offset-based sizing and positioning.
+It currently renders a snapshot after script execution: live callback round-tripping,
+automatic script watching, dynamic property updates, and full Roblox UDim2/Color3/Enum
+compatibility are not implemented yet and are planned for subsequent milestones.
+
 ## Features
 
 - Instance system and hierarchy.
