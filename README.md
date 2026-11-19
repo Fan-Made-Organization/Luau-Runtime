@@ -1,8 +1,8 @@
-# FMO Luau Runtime
+# Luau Runtime
 
 **A fan-made Luau runtime and Roblox-like simulation environment.**
 
-FMO Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
+Luau Runtime is a project developed by Fan-Made Organization (FMO). It provides a custom simulation layer built around the Luau interpreter, with systems inspired by Roblox, including Instances, Services, Signals, Tasks, Physics, Collision, Script Management, and more.
 
 > **Project status:** UPDATE 1.2 hardening has been merged into `Runtime`. UPDATE 1.3 adds an integrated runtime profiler with bounded timing samples, reports, safe measurement tokens, and callback profiling. GitHub Actions validates Python and the Luau Super Test.
 
@@ -74,7 +74,7 @@ its scheduler, physics, and collision phases. Measurement tokens are validated
 against private timing data so editing their public fields cannot alter recorded
 measurements.
 
-**Important:** FMO Luau Runtime is not an official Roblox runtime and does not provide complete Roblox engine compatibility. Some systems are simulations and do not reproduce real Roblox networking, physics, or execution environments.
+**Important:** Luau Runtime is not an official Roblox runtime and does not provide complete Roblox engine compatibility. Some systems are simulations and do not reproduce real Roblox networking, physics, or execution environments.
 
 ## Requirements
 
@@ -150,7 +150,7 @@ python3 --version
 
 ## 2. Install the Luau interpreter
 
-FMO Luau Runtime uses the official Luau command-line interpreter.
+Luau Runtime uses the official Luau command-line interpreter.
 
 You can find its source code here:
 
@@ -191,7 +191,7 @@ After building, the interpreter should be located at:
 ~/luau/build/luau
 ```
 
-This is the default location expected by FMO Luau Runtime.
+This is the default location expected by Luau Runtime.
 
 ### Windows and macOS
 
@@ -203,7 +203,7 @@ Make sure the resulting Luau executable is available at the path configured in `
 
 On Windows, the executable may be named `luau.exe`. If necessary, update `LUAU_EXECUTABLE` in `config.py` to point to its actual location.
 
-## 3. Download FMO Luau Runtime
+## 3. Download Luau Runtime
 
 ### Option A — Download ZIP (recommended)
 
@@ -264,7 +264,7 @@ If `py` is unavailable but `python` works:
 python main.py
 ```
 
-If everything is configured correctly, the FMO Luau Runtime launcher will initialize the Luau interpreter and execute the project's test script.
+If everything is configured correctly, the Luau Runtime launcher will initialize the Luau interpreter and execute the project's test script.
 
 ## 5. Troubleshooting
 
@@ -324,7 +324,7 @@ Check that:
 - Estadísticas del runtime y perfilador de rendimiento integrado.
 - Administrador integrado del runtime.
 
-**Importante:** FMO Luau Runtime no es un runtime oficial de Roblox ni ofrece compatibilidad completa con su motor. Algunos sistemas son simulaciones y no reproducen completamente las redes, la física o los entornos de ejecución reales de Roblox.
+**Importante:** Luau Runtime no es un runtime oficial de Roblox ni ofrece compatibilidad completa con su motor. Algunos sistemas son simulaciones y no reproducen completamente las redes, la física o los entornos de ejecución reales de Roblox.
 
 ## Requisitos
 
@@ -400,7 +400,7 @@ python3 --version
 
 ## 2. Instalar el intérprete de Luau
 
-FMO Luau Runtime utiliza el intérprete oficial de Luau para línea de comandos.
+Luau Runtime utiliza el intérprete oficial de Luau para línea de comandos.
 
 Puedes encontrar su código fuente aquí:
 
@@ -441,7 +441,7 @@ Después de compilarlo, el intérprete debería encontrarse en:
 ~/luau/build/luau
 ```
 
-Esta es la ubicación predeterminada que espera FMO Luau Runtime.
+Esta es la ubicación predeterminada que espera Luau Runtime.
 
 ### Windows y macOS
 
@@ -453,7 +453,7 @@ Asegúrate de que el ejecutable de Luau esté disponible en la ruta configurada 
 
 En Windows, el archivo ejecutable puede llamarse `luau.exe`. Si es necesario, modifica `LUAU_EXECUTABLE` en `config.py` para indicar su ubicación real.
 
-## 3. Descargar FMO Luau Runtime
+## 3. Descargar Luau Runtime
 
 ### Opción A — Descargar ZIP (recomendado)
 
@@ -514,7 +514,7 @@ Si `py` no está disponible, pero `python` funciona:
 python main.py
 ```
 
-Si todo está correctamente configurado, el lanzador de FMO Luau Runtime inicializará el intérprete de Luau y ejecutará el script de pruebas del proyecto.
+Si todo está correctamente configurado, el lanzador de Luau Runtime inicializará el intérprete de Luau y ejecutará el script de pruebas del proyecto.
 
 ## 5. Solución de problemas
 
@@ -574,7 +574,7 @@ Comprueba que:
 - Estatísticas do runtime e perfilador de desempenho integrado.
 - Gerenciador integrado do runtime.
 
-**Importante:** FMO Luau Runtime não é um runtime oficial do Roblox e não oferece compatibilidade completa com sua engine. Alguns sistemas são simulações e não reproduzem completamente as redes, a física ou os ambientes de execução reais do Roblox.
+**Importante:** Luau Runtime não é um runtime oficial do Roblox e não oferece compatibilidade completa com sua engine. Alguns sistemas são simulações e não reproduzem completamente as redes, a física ou os ambientes de execução reais do Roblox.
 
 ## Requisitos
 
@@ -650,7 +650,7 @@ python3 --version
 
 ## 2. Instalar o interpretador Luau
 
-FMO Luau Runtime utiliza o interpretador oficial Luau para linha de comando.
+Luau Runtime utiliza o interpretador oficial Luau para linha de comando.
 
 Você pode encontrar o código-fonte aqui:
 
@@ -691,7 +691,7 @@ Após a compilação, o interpretador deverá estar localizado em:
 ~/luau/build/luau
 ```
 
-Esse é o caminho padrão esperado pelo FMO Luau Runtime.
+Esse é o caminho padrão esperado pelo Luau Runtime.
 
 ### Windows e macOS
 
@@ -703,7 +703,7 @@ Certifique-se de que o executável Luau esteja disponível no caminho configurad
 
 No Windows, o executável pode se chamar `luau.exe`. Se necessário, atualize `LUAU_EXECUTABLE` em `config.py` para apontar para o local correto.
 
-## 3. Baixar o FMO Luau Runtime
+## 3. Baixar o Luau Runtime
 
 ### Opção A — Baixar ZIP (recomendado)
 
@@ -764,7 +764,7 @@ Se `py` não estiver disponível, mas `python` funcionar:
 python main.py
 ```
 
-Se tudo estiver configurado corretamente, o inicializador do FMO Luau Runtime iniciará o interpretador Luau e executará o script de testes do projeto.
+Se tudo estiver configurado corretamente, o inicializador do Luau Runtime iniciará o interpretador Luau e executará o script de testes do projeto.
 
 ## 5. Solução de problemas
 
@@ -809,4 +809,4 @@ Check the repository for the project's license and usage terms.
 
 **Fan-Made Organization (FMO)**
 
-FMO Luau Runtime — UPDATE 1.3
+Luau Runtime — UPDATE 1.3
