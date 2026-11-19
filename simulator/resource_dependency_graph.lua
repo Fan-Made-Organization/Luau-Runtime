@@ -138,8 +138,8 @@ function Graph:Build()
         Degrees = { Incoming = incoming, Outgoing = outgoing },
     }
     for _, id in ipairs(nodeList) do
-        if outgoing[id] == 0 then snapshot.Metrics.RootCount += 1 end
-        if incoming[id] == 0 then snapshot.Metrics.LeafCount += 1 end
+        if incoming[id] == 0 then snapshot.Metrics.RootCount += 1 end
+        if outgoing[id] == 0 then snapshot.Metrics.LeafCount += 1 end
     end
     self._history[#self._history + 1] = snapshot
     while #self._history > self.MaximumSnapshots do table.remove(self._history, 1) end
