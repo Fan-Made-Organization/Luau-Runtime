@@ -90,6 +90,7 @@ end
 
 local function isValidInstance(object)
     return type(object) == "table"
+        and getmetatable(object) == InstanceMetatable
         and object._isInstance == true
         and type(object._children) == "table"
         and type(object._properties) == "table"
