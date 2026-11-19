@@ -16,6 +16,7 @@ local GarbageCollector = {
     _objects = {},
     _roots = {},
     _lastAutomaticCollection = 0,
+    _collecting = false,
     _statistics = {
         Tracked = 0,
         Collected = 0,
@@ -185,6 +186,10 @@ function GarbageCollector:Collect(options)
     if not self.Enabled then
         return false, "Garbage collector is disabled"
     end
+    if self._collecting then
+        return false, "Garbage collection is already in progress"
+    end
+    self._collecting = true
 
     local marked = {}
     local stack = self:GetRoots()
@@ -240,11 +245,13 @@ function GarbageCollector:Collect(options)
         end
     end
 
-    self._statistics.CollectionCycles += 1
-    self._statistics.Marked += 0
+    local markedCount = 0
     for _ in pairs(marked) do
-        self._statistics.Marked += 1
+        markedCount += 1
     end
+    self._statistics.CollectionCycles += 1
+    self._statistics.Marked += markedCount
+    self._collecting = false
     self._statistics.Collected += #collected
     self._statistics.ExplicitCollections += options.Automatic == true and 0 or 1
     self._statistics.AutomaticCollections += options.Automatic == true and 1 or 0
@@ -252,7 +259,7 @@ function GarbageCollector:Collect(options)
     return true, {
         Collected = #collected,
         Retained = self:GetCount(),
-        Marked = self._statistics.Marked,
+        Marked = markedCount,
         Failed = failed,
         CollectedIds = collected,
     }
@@ -354,6 +361,7 @@ function GarbageCollector:Reset()
     self.AutomaticThreshold = 256
     self.AutomaticInterval = 1
     self._lastAutomaticCollection = 0
+    self._collecting = false
     self._statistics = {
         Tracked = 0,
         Collected = 0,
