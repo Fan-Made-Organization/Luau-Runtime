@@ -22,6 +22,8 @@ local MemoryManager = require("./memory_manager")
 local EventManager = require("./event_manager")
 local ResourceManager = require("./resource_manager")
 local RuntimeDebugger = require("./runtime_debugger")
+local PerformanceMonitor = require("./performance_monitor")
+local TaskQueue = require("./task_queue")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -85,6 +87,8 @@ Game.MemoryManager = MemoryManager
 Game.EventManager = EventManager
 Game.ResourceManager = ResourceManager
 Game.RuntimeDebugger = RuntimeDebugger
+Game.PerformanceMonitor = PerformanceMonitor
+Game.TaskQueue = TaskQueue
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -97,6 +101,14 @@ Game.RemoteEvent = BuiltinServices.RemoteEvent
 Game.RemoteFunction = BuiltinServices.RemoteFunction
 
 -- Proveedores de estadísticas
+RuntimeStatistics:RegisterProvider("PerformanceMonitor", function()
+    return PerformanceMonitor:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("TaskQueue", function()
+    return TaskQueue:GetStatistics()
+end)
+
 RuntimeStatistics:RegisterProvider("ResourceManager", function()
     return ResourceManager:GetStatistics()
 end)
@@ -249,6 +261,16 @@ end
 
 function Game:GetMemoryStatistics()
     return MemoryManager:GetStatistics()
+end
+
+-- Performance Monitor
+function Game:MeasurePerformance(name, callback, ...)
+    return PerformanceMonitor:Measure(name, callback, ...)
+end
+
+-- Task Queue
+function Game:EnqueueTask(callback, options)
+    return TaskQueue:Enqueue(callback, options)
 end
 
 -- Resource Manager
