@@ -157,7 +157,7 @@ end
 print("")
 print("========================================================")
 print("             FMO LUAU RUNTIME")
-print("                SUPER TEST 1.0")
+print("                SUPER TEST 1.1")
 print("========================================================")
 print("")
 print("[Runtime] Initializing...")
@@ -394,6 +394,50 @@ test("Signal connection count", function()
 
     equal(signal:Count(), 1)
 
+    signal:Destroy()
+end)
+
+test("Signal DisconnectAll releases callbacks", function()
+    local signal = Signal.new()
+    local connection = signal:Connect(function() end)
+
+    signal:DisconnectAll()
+
+    expect(not connection:IsConnected())
+    equal(connection._callback, nil)
+    equal(connection._signal, nil)
+    equal(signal:Count(), 0)
+    signal:Destroy()
+end)
+
+test("Signal DisconnectAll is safe when repeated", function()
+    local signal = Signal.new()
+    signal:Connect(function() end)
+
+    signal:DisconnectAll()
+    signal:DisconnectAll()
+
+    equal(signal:Count(), 0)
+    signal:Destroy()
+end)
+
+test("Signal callback can disconnect another callback during Fire", function()
+    local signal = Signal.new()
+    local calls = 0
+    local second
+
+    signal:Connect(function()
+        calls += 1
+        second:Disconnect()
+    end)
+    second = signal:Connect(function()
+        calls += 100
+    end)
+
+    signal:Fire()
+
+    equal(calls, 1)
+    equal(signal:Count(), 1)
     signal:Destroy()
 end)
 
@@ -1526,7 +1570,7 @@ else
     print("       SOME TESTS NEED ATTENTION.")
 end
 
-print("       FMO LUAU RUNTIME - SUPER TEST 1.0")
+print("       FMO LUAU RUNTIME - SUPER TEST 1.1")
 line()
 
 print("")
