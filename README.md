@@ -897,3 +897,51 @@ Check the repository for the project's license and usage terms.
 **Fan-Made Organization (FMO)**
 
 Luau Runtime — UPDATE 2.0
+
+
+
+## Managed Garbage Collector — UPDATE 2.1
+
+Luau Runtime now includes an explicit **managed mark-and-sweep collector** at
+`Game.GarbageCollector`. It manages only values registered through this API;
+it does not inspect, replace, or control the native Luau VM garbage collector.
+
+```lua
+local GC = game.GarbageCollector
+
+-- Register managed values. Roots are the entry points of the object graph.
+GC:Track("scene", sceneData, { Root = true })
+GC:Track("mesh-cache", meshData)
+GC:AddReference("scene", "mesh-cache")
+
+-- Objects reachable from roots survive; unreachable objects are collected.
+local ok, report = GC:Collect()
+print(report.Collected, report.Retained)
+
+-- Optional cleanup callback, invoked before the managed record is removed.
+GC:Track("temporary-resource", resource, {
+    Finalize = function(value)
+        value:Release()
+    end,
+})
+```
+
+The collector supports explicit roots, object references (including cycles), safe
+finalizer error handling, optional links to logical `MemoryManager` allocations,
+validation, statistics, and opt-in automatic collection. Automatic collection is
+disabled by default; enable it and configure its threshold/interval when the
+application has finished establishing its roots and references:
+
+```lua
+GC:SetAutomaticThreshold(512)
+GC:SetAutomaticInterval(2)
+GC:SetAutomaticEnabled(true)
+```
+
+The automatic collector is checked during `Game:Step()`. A failed finalizer keeps
+its object tracked for inspection or a later retry. The memory numbers are
+runtime bookkeeping only, not measurements of the Luau VM heap.
+
+New convenience methods are also available on `Game`:
+`TrackManagedObject`, `AddManagedReference`, `SetManagedRoot`, and
+`CollectGarbage`.
