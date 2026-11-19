@@ -2969,8 +2969,8 @@ end)
 
 test("Resource Intelligence detects memory limit violations", function()
     MemoryManager:Reset()
-    MemoryManager:SetLimit(8)
     MemoryManager:Allocate("ri-over-limit", 16, { Owner = "AuditTest" })
+    MemoryManager:SetLimit(8)
     local ok, report = ResourceIntelligence:Scan()
     expect(ok)
     local found = false
