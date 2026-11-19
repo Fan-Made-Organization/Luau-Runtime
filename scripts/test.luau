@@ -2163,6 +2163,216 @@ test("Debugger statistics and clear", function()
 end)
 
 
+
+--------------------------------------------------------
+-- 30E. PERFORMANCE MONITOR
+--------------------------------------------------------
+
+section("30E. PERFORMANCE MONITOR")
+
+local PerformanceMonitor = Game.PerformanceMonitor
+
+test("PerformanceMonitor is integrated", function()
+    expect(type(PerformanceMonitor) == "table")
+    expect(type(Game.MeasurePerformance) == "function")
+end)
+
+test("Performance metric recording", function()
+    PerformanceMonitor:Reset()
+    expect(PerformanceMonitor:Record("frame", 10))
+    expect(PerformanceMonitor:Record("frame", 20))
+    equal(PerformanceMonitor:GetCount("frame"), 2)
+    equal(PerformanceMonitor:GetAverage("frame"), 15)
+end)
+
+test("Performance metric min max and latest", function()
+    equal(PerformanceMonitor:GetMinimum("frame"), 10)
+    equal(PerformanceMonitor:GetMaximum("frame"), 20)
+    equal(PerformanceMonitor:GetLatest("frame"), 20)
+end)
+
+test("Performance timer lifecycle", function()
+    local timer = PerformanceMonitor:StartTimer("manual")
+    expect(timer ~= nil)
+    local elapsed = PerformanceMonitor:StopTimer(timer)
+    expect(type(elapsed) == "number")
+    expect(elapsed >= 0)
+    equal(PerformanceMonitor:StopTimer(timer), nil)
+end)
+
+test("Performance callback measurement preserves results", function()
+    local first, second = PerformanceMonitor:Measure("callback", function(a,b) return a+b,"ok" end, 2,3)
+    equal(first, 5)
+    equal(second, "ok")
+    expect(PerformanceMonitor:GetCount("callback") == 1)
+end)
+
+test("Performance measurement rethrows callback errors", function()
+    local ok = pcall(function()
+        PerformanceMonitor:Measure("failure", function() error("expected") end)
+    end)
+    expect(not ok)
+    expect(PerformanceMonitor:GetStatistics().Errors >= 1)
+end)
+
+test("Performance sample limit is enforced", function()
+    PerformanceMonitor:SetSampleLimit(2)
+    PerformanceMonitor:Record("bounded", 1)
+    PerformanceMonitor:Record("bounded", 2)
+    PerformanceMonitor:Record("bounded", 3)
+    equal(#PerformanceMonitor:GetSamples("bounded"), 2)
+    equal(PerformanceMonitor:GetAverage("bounded"), 2.5)
+    PerformanceMonitor:SetSampleLimit(500)
+end)
+
+test("Performance budgets detect overruns", function()
+    PerformanceMonitor:SetBudget("frame", 15)
+    expect(PerformanceMonitor:IsOverBudget("frame"))
+    equal(PerformanceMonitor:GetOverBudgetMetrics()[1], "frame")
+end)
+
+test("Performance marks and snapshots", function()
+    PerformanceMonitor:Mark("checkpoint", { Frame = 3 })
+    PerformanceMonitor:Snapshot("first")
+    PerformanceMonitor:Record("frame", 30)
+    PerformanceMonitor:Snapshot("second")
+    expect(PerformanceMonitor:CompareSnapshots("first", "second").Changed)
+    equal(#PerformanceMonitor:GetMarks("checkpoint"), 1)
+end)
+
+test("Performance metric names are sorted", function()
+    local names = PerformanceMonitor:GetMetricNames()
+    for index = 2, #names do expect(names[index - 1] <= names[index]) end
+end)
+
+test("Performance metric clear and enable controls", function()
+    expect(PerformanceMonitor:ClearMetric("bounded"))
+    PerformanceMonitor:SetEnabled(false)
+    expect(not PerformanceMonitor:Record("ignored", 1))
+    PerformanceMonitor:SetEnabled(true)
+end)
+
+test("Performance monitor statistics and reset", function()
+    expect(PerformanceMonitor:GetStatistics().Records >= 1)
+    PerformanceMonitor:Reset()
+    equal(PerformanceMonitor:GetStatistics().MetricCount, 0)
+end)
+
+--------------------------------------------------------
+-- 30F. TASK QUEUE
+--------------------------------------------------------
+
+section("30F. TASK QUEUE")
+
+local TaskQueue = Game.TaskQueue
+
+test("TaskQueue is integrated", function()
+    expect(type(TaskQueue) == "table")
+    expect(type(Game.EnqueueTask) == "function")
+end)
+
+test("Task queue enqueue and lookup", function()
+    TaskQueue:Reset()
+    local id = TaskQueue:Enqueue(function() return 7 end, { Label = "lookup" })
+    expect(TaskQueue:Has(id))
+    equal(TaskQueue:Get(id).Label, "lookup")
+    equal(TaskQueue:GetCount(), 1)
+end)
+
+test("Task queue executes ready tasks", function()
+    local value
+    TaskQueue:Enqueue(function() value = 99 end)
+    local ran, failed = TaskQueue:RunAll()
+    equal(ran, 1)
+    equal(failed, 0)
+    equal(value, 99)
+end)
+
+test("Task queue respects priority", function()
+    local order = {}
+    TaskQueue:Enqueue(function() order[#order+1] = "low" end, { Priority = 1 })
+    TaskQueue:Enqueue(function() order[#order+1] = "high" end, { Priority = 10 })
+    TaskQueue:RunAll()
+    equal(order[1], "high")
+    equal(order[2], "low")
+end)
+
+test("Task queue delays tasks until clock advances", function()
+    local ran = false
+    TaskQueue:Delay(5, function() ran = true end)
+    TaskQueue:RunAll()
+    expect(not ran)
+    equal(TaskQueue:Advance(5), 5)
+    TaskQueue:RunAll()
+    expect(ran)
+end)
+
+test("Task queue cancellation", function()
+    local id = TaskQueue:Defer(function() error("must not run") end)
+    expect(TaskQueue:Cancel(id))
+    expect(not TaskQueue:Has(id))
+end)
+
+test("Task queue pause and resume", function()
+    local count = 0
+    TaskQueue:Enqueue(function() count += 1 end)
+    TaskQueue:Pause()
+    TaskQueue:RunAll()
+    equal(count, 0)
+    TaskQueue:Resume()
+    TaskQueue:RunAll()
+    equal(count, 1)
+end)
+
+test("Task queue isolates callback errors", function()
+    TaskQueue:Enqueue(function() error("expected task error") end)
+    TaskQueue:Enqueue(function() end)
+    local ran, failed = TaskQueue:RunAll()
+    equal(ran, 2)
+    equal(failed, 1)
+end)
+
+test("Task queue execution limit", function()
+    TaskQueue:Enqueue(function() end)
+    TaskQueue:Enqueue(function() end)
+    local ran = TaskQueue:RunAll(1)
+    equal(ran, 1)
+    equal(TaskQueue:GetPendingCount(), 1)
+end)
+
+test("Task queue history and statistics", function()
+    TaskQueue:RunAll()
+    expect(#TaskQueue:GetHistory() >= 1)
+    expect(TaskQueue:GetStatistics().Executed >= 1)
+    expect(TaskQueue:GetStatistics().Failed >= 1)
+end)
+
+test("Task queue history limit", function()
+    TaskQueue:SetHistoryLimit(1)
+    TaskQueue:Enqueue(function() end)
+    TaskQueue:Enqueue(function() end)
+    TaskQueue:RunAll()
+    equal(#TaskQueue:GetHistory(), 1)
+    TaskQueue:SetHistoryLimit(200)
+end)
+
+test("Task queue capacity", function()
+    TaskQueue:SetMaximumTasks(1)
+    TaskQueue:Enqueue(function() end)
+    local id = TaskQueue:Enqueue(function() end)
+    equal(id, nil)
+    TaskQueue:Clear()
+    TaskQueue:SetMaximumTasks(10000)
+end)
+
+test("Task queue reset restores defaults", function()
+    TaskQueue:Reset()
+    equal(TaskQueue:GetTime(), 0)
+    equal(TaskQueue:GetMaximumTasks(), 10000)
+    expect(TaskQueue:IsEnabled())
+end)
+
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
