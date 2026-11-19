@@ -9,7 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette, QFont
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QLabel, QLineEdit, QMainWindow, QPushButton,
+    QApplication, QFrame, QLineEdit, QMainWindow, QPushButton,
     QScrollArea, QStatusBar, QWidget,
 )
 
@@ -84,6 +84,30 @@ def label_alignment(horizontal, vertical):
     return h | v
 
 
+class FmoTextLabel(QWidget):
+    """TextLabel painted directly with QPainter to avoid QLabel/style-engine issues."""
+
+    def __init__(self, text, text_color, font_size, alignment, parent=None):
+        super().__init__(parent)
+        self.text = str(text)
+        self.text_color = QColor(text_color)
+        self.text_alignment = alignment
+        self.label_font = QFont(self.font())
+        self.label_font.setPointSize(max(1, int(font_size)))
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+
+    def paintEvent(self, event):
+        from PySide6.QtGui import QPainter
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        painter.setPen(self.text_color)
+        painter.setFont(self.label_font)
+        flags = self.text_alignment | Qt.TextFlag.TextWordWrap
+        painter.drawText(self.rect().adjusted(1, 1, -1, -1), flags, self.text)
+        painter.end()
+
+
 class GuiRenderer:
     def __init__(self, parent: QWidget, event_handler):
         self.parent = parent
@@ -141,22 +165,15 @@ class GuiRenderer:
         elif kind == "TextLabel":
             text = str(props.get("Text", "Label"))
             text_color = color(props.get("TextColor3"), "#f0f0f5")
-            widget = QLabel(text, parent_widget)
-            widget.setTextFormat(Qt.TextFormat.PlainText)
-            widget.setWordWrap(True)
-            widget.setAlignment(label_alignment(
-                props.get("TextXAlignment", "Left"),
-                props.get("TextYAlignment", "Center"),
-            ))
-            font = QFont(widget.font())
-            font.setPointSize(max(1, int(number(props.get("TextSize", 14), 14))))
-            widget.setFont(font)
-            palette = widget.palette()
-            palette.setColor(QPalette.ColorRole.WindowText, text_color)
-            widget.setPalette(palette)
-            widget.setAutoFillBackground(False)
-            widget.setStyleSheet(
-                f"QLabel {{ color:{text_color.name()}; background:transparent; }}"
+            widget = FmoTextLabel(
+                text=text,
+                text_color=text_color,
+                font_size=number(props.get("TextSize", 14), 14),
+                alignment=label_alignment(
+                    props.get("TextXAlignment", "Left"),
+                    props.get("TextYAlignment", "Center"),
+                ),
+                parent=parent_widget,
             )
         elif kind == "Frame":
             widget = QFrame(parent_widget)
@@ -186,9 +203,9 @@ class GuiRenderer:
         )
         if kind == "TextLabel":
             self.debug(
-                f"LABEL id={node_id} text={widget.text()!r} "
-                f"color={widget.palette().color(QPalette.ColorRole.WindowText).name()} "
-                f"font={widget.font().pointSize()}pt size={widget.size().width()}x{widget.size().height()}"
+                f"LABEL id={node_id} text={widget.text!r} "
+                f"color={widget.text_color.name()} "
+                f"font={widget.label_font.pointSize()}pt size={widget.size().width()}x{widget.size().height()}"
             )
         if kind == "Frame":
             widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
