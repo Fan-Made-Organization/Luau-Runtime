@@ -2,7 +2,7 @@
 ========================================================
              LUAU RUNTIME
                 SUPER TEST
-                  VERSION 1.0
+                  VERSION 2.0
 ========================================================
 
   Integrated Runtime Verification System
@@ -37,7 +37,15 @@
     27. Error Handler
     28. Script Sandbox
     29. Runtime Statistics
-    30. Integrated Runtime
+    30. Runtime Profiler
+    31. Memory Manager
+    32. Event Manager
+    33. Resource Manager
+    34. Runtime Debugger
+    35. Performance Monitor
+    36. Task Queue
+    37. Instance Manager
+    38. Integrated Runtime
 
 ========================================================
 ]]
@@ -157,7 +165,7 @@ end
 print("")
 print("========================================================")
 print("             LUAU RUNTIME")
-print("                SUPER TEST 1.3")
+print("                SUPER TEST 2.0")
 print("========================================================")
 print("")
 print("[Runtime] Initializing...")
@@ -2645,7 +2653,7 @@ else
     print("       SOME TESTS NEED ATTENTION.")
 end
 
-print("       LUAU RUNTIME - SUPER TEST 1.3")
+print("       LUAU RUNTIME - SUPER TEST 2.0")
 line()
 
 print("")
