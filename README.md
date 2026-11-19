@@ -45,7 +45,7 @@ Instance classes. It is a local compatibility/simulation tool, not a Roblox clie
 Install the desktop dependency on Arch Linux:
 
 ```bash
-sudo pacman -S python-pyside6
+sudo pacman -S pyside6
 ```
 
 Or install the Python dependency in your environment:
