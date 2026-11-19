@@ -1621,7 +1621,10 @@ test("Profiler can be disabled and re-enabled", function()
     end), 42)
 
     Profiler:SetEnabled(true)
-    expect(Game:BeginProfile("FMO_Reenabled_Profile") ~= nil)
+    local reenabled = Game:BeginProfile("FMO_Reenabled_Profile")
+    expect(reenabled ~= nil)
+    expect(Game:EndProfile(reenabled) ~= nil)
+
     local active = Game:BeginProfile("FMO_Reenabled_Cleanup")
     expect(Game:EndProfile(active) ~= nil)
 end)
