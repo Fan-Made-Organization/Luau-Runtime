@@ -54,28 +54,32 @@ function RuntimeProfiler:Begin(name)
 
     local token = {
         Id = self._nextId,
-        Name = name,
-        StartedAt = os.clock(),
         Active = true,
-        Owner = self,
     }
 
-    self._active[token] = true
+    -- Keep authoritative timing data private so callers cannot alter a
+    -- measurement by editing fields on the public token.
+    self._active[token] = {
+        Name = name,
+        StartedAt = os.clock(),
+    }
     self._statistics.Started += 1
 
     return token
 end
 
 function RuntimeProfiler:End(token)
-    if type(token) ~= "table"
-        or token.Owner ~= self
-        or token.Active ~= true
-        or self._active[token] ~= true
-    then
+    if type(token) ~= "table" then
         return nil, "Invalid or inactive profile token"
     end
 
-    local elapsed = os.clock() - token.StartedAt
+    local measurement = self._active[token]
+
+    if not measurement then
+        return nil, "Invalid or inactive profile token"
+    end
+
+    local elapsed = os.clock() - measurement.StartedAt
 
     if not isFiniteNumber(elapsed) or elapsed < 0 then
         token.Active = false
@@ -87,7 +91,7 @@ function RuntimeProfiler:End(token)
     token.Active = false
     self._active[token] = nil
 
-    local profile = getOrCreateProfile(self, token.Name)
+    local profile = getOrCreateProfile(self, measurement.Name)
 
     profile.Count += 1
     profile.Total += elapsed
@@ -235,8 +239,8 @@ function RuntimeProfiler:Clear(name)
             error("Profile name must be a string", 2)
         end
 
-        for token in pairs(self._active) do
-            if token.Name == name then
+        for _, measurement in pairs(self._active) do
+            if measurement.Name == name then
                 return false, "Cannot clear a profile while it is active"
             end
         end
