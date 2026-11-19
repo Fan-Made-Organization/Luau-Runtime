@@ -8,7 +8,7 @@ local function finite(v) return type(v)=="number" and v==v and v~=math.huge and 
 function Queue:Enqueue(callback, options)
     if type(callback)~="function" then error("Task callback must be a function",2) end
     options=options or {}; if type(options)~="table" then error("Task options must be a table",2) end
-    if #self._tasks>=self.MaximumTasks then return nil,"Task queue is full" end
+    if self:GetCount()>=self.MaximumTasks then return nil,"Task queue is full" end
     local delay=options.Delay or 0; local priority=options.Priority or 0
     if not finite(delay) or delay<0 or not finite(priority) then error("Invalid task delay or priority",2) end
     self._nextId+=1
@@ -18,11 +18,11 @@ function Queue:Enqueue(callback, options)
     return task.Id
 end
 function Queue:Defer(callback, options)
-    options=options or {}; options.Delay=0; return self:Enqueue(callback,options)
+    local copy={}; for k,v in pairs(options or {}) do copy[k]=v end; copy.Delay=0; return self:Enqueue(callback,copy)
 end
 function Queue:Delay(seconds, callback, options)
     if not finite(seconds) or seconds<0 then error("Delay must be non-negative and finite",2) end
-    options=options or {}; options.Delay=seconds; return self:Enqueue(callback,options)
+    local copy={}; for k,v in pairs(options or {}) do copy[k]=v end; copy.Delay=seconds; return self:Enqueue(callback,copy)
 end
 function Queue:Get(id)
     local t=self._tasks[id]; if not t then return nil end
