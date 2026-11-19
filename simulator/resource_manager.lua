@@ -25,6 +25,7 @@ function ResourceManager:Register(id, value, options)
     if type(options) ~= "table" then error("Resource options must be a table", 2) end
     if options.Cleanup ~= nil and type(options.Cleanup) ~= "function" then error("Cleanup must be a function", 2) end
     if options.Scope ~= nil and not self._scopes[options.Scope] then return false, "Unknown scope" end
+    if options.Scope ~= nil and self._scopes[options.Scope].Closed then return false, "Scope is closed" end
     self._resources[id] = {
         Id = id, Value = value, Type = options.Type or type(value),
         Tag = options.Tag or "Default", Scope = options.Scope,
@@ -67,6 +68,7 @@ function ResourceManager:Transfer(id, scopeId)
     local r = self._resources[id]
     if not r then return false, "Resource not found" end
     if scopeId ~= nil and not self._scopes[scopeId] then return false, "Unknown scope" end
+    if scopeId ~= nil and self._scopes[scopeId].Closed then return false, "Scope is closed" end
     if r.Scope and self._scopes[r.Scope] then
         local old = self._scopes[r.Scope].Resources
         for i = #old, 1, -1 do if old[i] == id then table.remove(old, i); break end end
