@@ -69,8 +69,10 @@ local profilerStats = performance.Providers.RuntimeProfiler
 
 The profiler supports bounded sample history, minimum/maximum/average/latest
 timings, callback error propagation, enable/disable controls, and clearing
-completed profiles. Measurement tokens are validated against private timing
-data so editing their public fields cannot alter recorded measurements.
+completed profiles. `Game:Step()` automatically records the total frame step and
+its scheduler, physics, and collision phases. Measurement tokens are validated
+against private timing data so editing their public fields cannot alter recorded
+measurements.
 
 **Important:** FMO Luau Runtime is not an official Roblox runtime and does not provide complete Roblox engine compatibility. Some systems are simulations and do not reproduce real Roblox networking, physics, or execution environments.
 
