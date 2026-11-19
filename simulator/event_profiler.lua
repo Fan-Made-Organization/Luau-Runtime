@@ -1,4 +1,5 @@
 -- Bounded event instrumentation and latency aggregation.
+local Snapshot = require("./snapshot")
 local Profiler={Enabled=true,Limit=500,_samples={},_totals={},_sequence=0}
 local function finite(n) return type(n)=="number" and n==n and n~=math.huge and n~=-math.huge end
 function Profiler:Record(name,duration,metadata)
@@ -6,7 +7,7 @@ function Profiler:Record(name,duration,metadata)
  if type(name)~="string" or name=="" then error("Event name required",2) end
  if not finite(duration) or duration<0 then error("Duration must be finite and non-negative",2) end
  self._sequence+=1
- local item={Id=self._sequence,Name=name,Duration=duration,At=os.clock(),Metadata=metadata}
+ local item={Id=self._sequence,Name=name,Duration=duration,At=os.clock(),Metadata=Snapshot.Clone(metadata)}
  self._samples[#self._samples+1]=item
  while #self._samples>self.Limit do table.remove(self._samples,1) end
  local t=self._totals[name] or {Count=0,Total=0,Maximum=0,Failures=0}
@@ -26,7 +27,7 @@ function Profiler:GetReport()
  for name,t in pairs(self._totals) do out[#out+1]={Name=name,Count=t.Count,Total=t.Total,Average=t.Total/t.Count,Maximum=t.Maximum,Failures=t.Failures} end
  table.sort(out,function(a,b)return a.Name<b.Name end);return out
 end
-function Profiler:GetSamples() local out={};for i,v in ipairs(self._samples) do out[i]={Id=v.Id,Name=v.Name,Duration=v.Duration,At=v.At,Metadata=v.Metadata} end;return out end
+function Profiler:GetSamples() local out={};for i,v in ipairs(self._samples) do out[i]={Id=v.Id,Name=v.Name,Duration=v.Duration,At=v.At,Metadata=Snapshot.Clone(v.Metadata)} end;return out end
 function Profiler:SetLimit(n) if type(n)~="number" or n<1 or n%1~=0 then error("Limit must be a positive integer",2) end;self.Limit=n;while #self._samples>n do table.remove(self._samples,1) end end
 function Profiler:SetEnabled(v) self.Enabled=v==true;return self.Enabled end
 function Profiler:GetStatistics() local n=0;for _ in pairs(self._totals) do n+=1 end;return {Enabled=self.Enabled,Samples=#self._samples,EventNames=n,Limit=self.Limit} end
