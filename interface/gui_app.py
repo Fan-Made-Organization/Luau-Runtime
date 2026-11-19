@@ -4,7 +4,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -151,18 +150,17 @@ def main():
 
     app = QApplication(sys.argv[:1])
     app.setApplicationName("FMO Script GUI Simulator")
-    with tempfile.TemporaryDirectory(prefix="fmo-gui-") as directory:
-        snapshot = ROOT / ".fmo_gui_snapshot.json"
-        try:
-            run_script(script, snapshot)
-            window = SimulatorWindow(snapshot, script)
-            window.show()
-            return app.exec()
-        finally:
-            snapshot.unlink(missing_ok=True)
-        except Exception as error:
-            print(f"[FMO GUI] {error}", file=sys.stderr)
-            return 1
+    snapshot = ROOT / ".fmo_gui_snapshot.json"
+    try:
+        run_script(script, snapshot)
+        window = SimulatorWindow(snapshot, script)
+        window.show()
+        return app.exec()
+    except Exception as error:
+        print(f"[FMO GUI] {error}", file=sys.stderr)
+        return 1
+    finally:
+        snapshot.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
