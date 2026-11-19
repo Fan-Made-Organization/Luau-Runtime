@@ -2373,6 +2373,107 @@ test("Task queue reset restores defaults", function()
 end)
 
 
+
+--------------------------------------------------------
+-- 30G. INSTANCE MANAGER
+--------------------------------------------------------
+
+section("30G. INSTANCE MANAGER")
+
+local InstanceManager = Game.InstanceManager
+
+test("InstanceManager is integrated", function()
+    expect(type(InstanceManager) == "table")
+    expect(type(Game.RegisterInstance) == "function")
+end)
+
+test("Instance manager registers live instances", function()
+    InstanceManager:Reset()
+    local item = Instance.new("Folder")
+    item.Name = "ManagedFolder"
+    local id, created = InstanceManager:Register(item)
+    expect(created)
+    expect(InstanceManager:Has(id))
+    equal(InstanceManager:GetById(id), item)
+end)
+
+test("Instance manager avoids duplicate registration", function()
+    local item = InstanceManager:GetAll()[1]
+    local id, created = InstanceManager:Register(item)
+    expect(not created)
+    expect(id ~= nil)
+end)
+
+test("Instance manager indexed name and class lookup", function()
+    equal(InstanceManager:FindFirstByName("ManagedFolder").Name, "ManagedFolder")
+    expect(#InstanceManager:FindByClass("Folder") >= 1)
+end)
+
+test("Instance manager tags", function()
+    local id = InstanceManager:GetId(InstanceManager:FindFirstByName("ManagedFolder"))
+    expect(InstanceManager:AddTag(id, "UI"))
+    expect(InstanceManager:HasTag(id, "UI"))
+    equal(InstanceManager:GetTags(id)[1], "UI")
+    equal(#InstanceManager:FindByTag("UI"), 1)
+    expect(InstanceManager:RemoveTag(id, "UI"))
+end)
+
+test("Instance manager groups", function()
+    local item = InstanceManager:FindFirstByName("ManagedFolder")
+    local id = InstanceManager:GetId(item)
+    expect(InstanceManager:SetGroup(id, "Editor"))
+    equal(InstanceManager:GetGroup(id), "Editor")
+    equal(#InstanceManager:FindByGroup("Editor"), 1)
+end)
+
+test("Instance manager metadata", function()
+    local item = InstanceManager:FindFirstByName("ManagedFolder")
+    local id = InstanceManager:GetId(item)
+    expect(InstanceManager:SetMetadata(id, { Version = 1 }))
+    equal(InstanceManager:GetMetadata(id).Version, 1)
+end)
+
+test("Instance manager refreshes renamed indexes", function()
+    local item = InstanceManager:FindFirstByName("ManagedFolder")
+    item.Name = "RenamedFolder"
+    expect(InstanceManager:Refresh(item))
+    equal(InstanceManager:FindFirstByName("RenamedFolder"), item)
+    equal(#InstanceManager:FindByName("ManagedFolder"), 0)
+end)
+
+test("Instance manager rebuilds indexes", function()
+    expect(InstanceManager:RebuildIndexes())
+    expect(InstanceManager:Validate())
+end)
+
+test("Instance manager statistics", function()
+    expect(InstanceManager:GetStatistics().Registered >= 1)
+    expect(InstanceManager:GetStatistics().Lookups >= 1)
+end)
+
+test("Instance manager unregisters without destroying", function()
+    local item = InstanceManager:FindFirstByName("RenamedFolder")
+    local id = InstanceManager:GetId(item)
+    expect(InstanceManager:Unregister(id))
+    expect(not item:IsDestroyed())
+    item:Destroy()
+end)
+
+test("Instance manager rejects destroyed instances", function()
+    local item = Instance.new("Folder")
+    item:Destroy()
+    local ok = pcall(function() InstanceManager:Register(item) end)
+    expect(not ok)
+end)
+
+test("Instance manager clear and reset", function()
+    InstanceManager:Clear()
+    equal(InstanceManager:GetCount(), 0)
+    InstanceManager:Reset()
+    equal(InstanceManager:GetStatistics().Registered, 0)
+end)
+
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
