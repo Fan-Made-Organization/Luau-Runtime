@@ -51,6 +51,7 @@
 ]]
 
 local Game = require("../simulator/game")
+local Snapshot = require("../simulator/snapshot")
 
 game = Game
 task = Game.Task
@@ -3258,6 +3259,18 @@ test("Event Profiler validates sample inputs", function()
     expect(not pcall(function() EventProfiler:Record("x", -1) end))
 end)
 
+test("Event Profiler snapshots metadata defensively", function()
+    EventProfiler:Reset()
+    local metadata = { Nested = { Value = 1 } }
+    EventProfiler:Record("snapshot", 0.1, metadata)
+    metadata.Nested.Value = 99
+    local samples = EventProfiler:GetSamples()
+    equal(samples[1].Metadata.Nested.Value, 1)
+    samples[1].Metadata.Nested.Value = 77
+    equal(EventProfiler:GetSamples()[1].Metadata.Nested.Value, 1)
+    EventProfiler:Reset()
+end)
+
 --------------------------------------------------------
 -- 30AF. SCHEDULER ANALYZER
 --------------------------------------------------------
@@ -3283,6 +3296,15 @@ test("Scheduler Analyzer can be disabled", function()
     local ok = SchedulerAnalyzer:Capture(Game.Scheduler, Game.TaskQueue)
     expect(not ok)
     SchedulerAnalyzer:SetEnabled(true)
+end)
+
+test("Scheduler Analyzer returns detached samples", function()
+    SchedulerAnalyzer:Reset()
+    local _, sample = SchedulerAnalyzer:Capture(Game.Scheduler, Game.TaskQueue)
+    if sample.Scheduler then sample.Scheduler.Frame = -100 end
+    local latest = SchedulerAnalyzer:GetLatest()
+    expect(latest.Scheduler == nil or latest.Scheduler.Frame ~= -100)
+    SchedulerAnalyzer:Reset()
 end)
 
 --------------------------------------------------------
@@ -3333,6 +3355,18 @@ test("Advanced Diagnostics bounds records", function()
     AdvancedDiagnostics:Reset()
 end)
 
+test("Advanced Diagnostics isolates nested details", function()
+    AdvancedDiagnostics:Reset()
+    local details = { Nested = { Value = 5 } }
+    local id = AdvancedDiagnostics:Report("copy", "INFO", "copy test", details)
+    details.Nested.Value = 50
+    local fetched = AdvancedDiagnostics:Get(id)
+    equal(fetched.Details.Nested.Value, 5)
+    fetched.Details.Nested.Value = 500
+    equal(AdvancedDiagnostics:Get(id).Details.Nested.Value, 5)
+    AdvancedDiagnostics:Reset()
+end)
+
 --------------------------------------------------------
 -- 30AI. BENCHMARK ENGINE
 --------------------------------------------------------
@@ -3355,6 +3389,17 @@ test("Benchmark Engine records callback failures without aborting", function()
 end)
 test("Benchmark Engine enforces iteration cap", function()
     expect(not pcall(function() BenchmarkEngine:Run("too-many",function() end,100001) end))
+end)
+
+test("Benchmark Engine returns detached result tables", function()
+    BenchmarkEngine:Reset()
+    local ok, result = BenchmarkEngine:Run("mutable", function()
+        return { Nested = { Value = 3 } }
+    end, 1)
+    expect(ok)
+    result.LastResult.Nested.Value = 33
+    equal(BenchmarkEngine:GetLatest().LastResult.Nested.Value, 3)
+    BenchmarkEngine:Reset()
 end)
 
 --------------------------------------------------------
@@ -3380,6 +3425,36 @@ test("Stress Lab isolates scenario errors", function()
 end)
 test("Stress Lab validates bounded iteration count", function()
     expect(not pcall(function() StressLab:Run("invalid",function() end,100001) end))
+end)
+
+test("Stress Lab history is detached", function()
+    StressLab:Reset()
+    StressLab:Run("history", function() end, 1)
+    local history = StressLab:GetHistory()
+    history[1].Name = "tampered"
+    equal(StressLab:GetLatest().Name, "history")
+    StressLab:Reset()
+end)
+
+--------------------------------------------------------
+-- 30AK. SNAPSHOT UTILITIES
+--------------------------------------------------------
+section("30AK. SNAPSHOT UTILITIES")
+
+test("Snapshot utility safely clones cyclic tables", function()
+    local original = { Value = 10 }
+    original.Self = original
+    local copy = Snapshot.Clone(original)
+    expect(copy ~= original)
+    expect(copy.Self == copy)
+    equal(copy.Value, 10)
+end)
+
+test("Snapshot utility preserves Instance identity", function()
+    local part = Instance.new("Part")
+    local copy = Snapshot.Clone({ Object = part })
+    expect(copy.Object == part)
+    part:Destroy()
 end)
 
 --------------------------------------------------------
