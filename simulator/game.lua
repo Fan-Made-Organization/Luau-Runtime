@@ -28,6 +28,7 @@ local TaskQueue = require("./task_queue")
 local InstanceManager = require("./instance_manager")
 local GarbageCollector = require("./garbage_collector")
 local ResourceIntelligence = require("./resource_intelligence")
+local ResourceDependencyGraph = require("./resource_dependency_graph")
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -97,6 +98,7 @@ Game.TaskQueue = TaskQueue
 Game.InstanceManager = InstanceManager
 Game.GarbageCollector = GarbageCollector
 Game.ResourceIntelligence = ResourceIntelligence
+Game.ResourceDependencyGraph = ResourceDependencyGraph
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -139,6 +141,10 @@ end)
 
 RuntimeStatistics:RegisterProvider("ResourceIntelligence", function()
     return ResourceIntelligence:GetStatistics()
+end)
+
+RuntimeStatistics:RegisterProvider("ResourceDependencyGraph", function()
+    return ResourceDependencyGraph:GetStatistics()
 end)
 
 RuntimeStatistics:RegisterProvider("EventManager", function()
@@ -319,6 +325,15 @@ end
 
 function Game:GetResourceHealth()
     return ResourceIntelligence:GetLatest()
+end
+
+-- Resource dependency graph (read-only analysis).
+function Game:BuildResourceDependencyGraph()
+    return ResourceDependencyGraph:Build()
+end
+
+function Game:GetResourceDependencyImpact(resourceId)
+    return ResourceDependencyGraph:GetImpact(resourceId)
 end
 
 -- Instance Manager
