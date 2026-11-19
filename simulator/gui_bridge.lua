@@ -100,8 +100,8 @@ function GuiBridge.Dispatch(id, eventName, value)
     if not instance then error("GUI instance not found: " .. id) end
 
     if eventName == "click" then
-        if instance.ClassName ~= "TextButton" then
-            error("Click events require a TextButton")
+        if instance.ClassName ~= "TextButton" and instance.ClassName ~= "ImageButton" then
+            error("Click events require a TextButton or ImageButton")
         end
         instance.MouseButton1Click:Fire()
         instance.Activated:Fire()
