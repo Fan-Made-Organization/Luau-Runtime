@@ -34,19 +34,26 @@ def color(value, fallback="#252936"):
     return QColor(fallback)
 
 
-def dimensions(value, default=(180, 40)):
+def _udim_component(scale, offset, parent_extent, fallback):
+    return int(round(number(scale) * parent_extent + number(offset, fallback)))
+
+
+def dimensions(value, default=(180, 40), parent_size=(900, 650)):
     if not isinstance(value, list) or len(value) < 4:
         return default
     return (
-        max(1, int(number(value[1], default[0]))),
-        max(1, int(number(value[3], default[1]))),
+        max(1, _udim_component(value[0], value[1], parent_size[0], default[0])),
+        max(1, _udim_component(value[2], value[3], parent_size[1], default[1])),
     )
 
 
-def position(value):
+def position(value, parent_size=(900, 650)):
     if not isinstance(value, list) or len(value) < 4:
         return (12, 12)
-    return int(number(value[1])), int(number(value[3]))
+    return (
+        _udim_component(value[0], value[1], parent_size[0], 12),
+        _udim_component(value[2], value[3], parent_size[1], 12),
+    )
 
 
 def lua_string(value: str) -> str:
@@ -129,10 +136,14 @@ class GuiRenderer:
         else:
             return
 
-        width, height = dimensions(props.get("Size"), (180, 40))
-        x, y = position(props.get("Position"))
+        parent_size = (max(1, parent_widget.width()), max(1, parent_widget.height()))
+        width, height = dimensions(props.get("Size"), (180, 40), parent_size)
+        x, y = position(props.get("Position"), parent_size)
         widget.setGeometry(x, y, width, height)
+        if kind == "Frame":
+            widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.show()
+        widget.raise_()
 
         child_parent = widget.widget() if kind == "ScrollingFrame" else widget
         self.render_children(child_parent, node.get("children", []))
@@ -155,14 +166,25 @@ class SimulatorWindow(QMainWindow):
         self.refresh(data)
 
     def refresh(self, data: dict):
-        for child in self.canvas.children():
-            if isinstance(child, QWidget):
-                child.hide()
-                child.setParent(None)
-                child.deleteLater()
+        # Replace the complete render surface instead of detaching individual
+        # descendants. This prevents stale parent widgets from covering the
+        # refreshed tree after a Luau callback.
+        previous_canvas = self.canvas
+        self.canvas = QWidget()
+        self.canvas.setObjectName("FmoGuiCanvas")
+        self.canvas.setStyleSheet(
+            "QWidget#FmoGuiCanvas { background:#202430; }"
+        )
+        self.setCentralWidget(self.canvas)
         self.renderer = GuiRenderer(self.canvas, self.dispatch_event)
-        self.renderer.render_children(self.canvas, data.get("children", []))
+
+        root_properties = data.get("properties", {})
+        if root_properties.get("Enabled", True) is not False:
+            self.renderer.render_children(self.canvas, data.get("children", []))
+
         self.canvas.update()
+        if previous_canvas is not self.canvas:
+            previous_canvas.deleteLater()
 
     def dispatch_event(self, instance_id: str, event_name: str, value):
         try:
