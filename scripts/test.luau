@@ -2939,6 +2939,146 @@ test("Closed resource scopes reject new registrations", function()
     expect(not registered)
 end)
 
+
+--------------------------------------------------------
+-- 30AC. RESOURCE INTELLIGENCE
+--------------------------------------------------------
+
+section("30AC. RESOURCE INTELLIGENCE")
+
+local ResourceIntelligence = Game.ResourceIntelligence
+
+test("Resource Intelligence is integrated into Game and statistics", function()
+    expect(type(ResourceIntelligence) == "table")
+    expect(type(Game.ScanResourceHealth) == "function")
+    expect(type(Game.GetResourceHealth) == "function")
+    expect(type(Statistics:GetProviderData().ResourceIntelligence) == "table")
+end)
+
+test("Resource Intelligence performs a cross-system scan", function()
+    ResourceIntelligence:Reset()
+    local ok, report = Game:ScanResourceHealth()
+    expect(ok)
+    expect(type(report.Findings) == "table")
+    expect(type(report.Memory) == "table")
+    expect(type(report.GarbageCollector) == "table")
+    expect(type(report.Resources) == "table")
+    expect(type(report.Instances) == "table")
+    expect(report.Health == "HEALTHY" or report.Health == "WARNING" or report.Health == "DEGRADED")
+end)
+
+test("Resource Intelligence detects memory limit violations", function()
+    MemoryManager:Reset()
+    MemoryManager:SetLimit(8)
+    MemoryManager:Allocate("ri-over-limit", 16, { Owner = "AuditTest" })
+    local ok, report = ResourceIntelligence:Scan()
+    expect(ok)
+    local found = false
+    for _, finding in ipairs(report.Findings) do
+        if finding.Code == "MEMORY_OVER_LIMIT" then found = true end
+    end
+    expect(found)
+    MemoryManager:Reset()
+end)
+
+test("Resource Intelligence detects large logical allocations", function()
+    MemoryManager:Reset()
+    ResourceIntelligence:SetThresholds({ LargeAllocationBytes = 32 })
+    MemoryManager:Allocate("ri-large", 64, { Owner = "AuditTest" })
+    local _, report = ResourceIntelligence:Scan()
+    local found = false
+    for _, finding in ipairs(report.Findings) do
+        if finding.Code == "LARGE_ALLOCATION" and finding.Details.Id == "ri-large" then found = true end
+    end
+    expect(found)
+    MemoryManager:Reset()
+    ResourceIntelligence:Reset()
+end)
+
+test("Resource Intelligence identifies unlinked Runtime allocations", function()
+    MemoryManager:Reset()
+    GarbageCollector:Reset()
+    MemoryManager:Allocate("ri-unlinked", 128, { Owner = "Runtime" })
+    local _, report = ResourceIntelligence:Scan()
+    local found = false
+    for _, finding in ipairs(report.Findings) do
+        if finding.Code == "UNLINKED_RUNTIME_ALLOCATION" then found = true end
+    end
+    expect(found)
+    MemoryManager:Reset()
+end)
+
+test("Resource Intelligence includes deterministic tracked object inventory", function()
+    GarbageCollector:Reset()
+    GarbageCollector:Track("ri-gc-a", {}, { Root = true })
+    GarbageCollector:Track("ri-gc-b", {})
+    local ids = GarbageCollector:GetTrackedIds()
+    equal(#ids, 2)
+    equal(ids[1], "ri-gc-a")
+    equal(ids[2], "ri-gc-b")
+    GarbageCollector:Reset()
+end)
+
+test("Resource Intelligence report history is bounded", function()
+    ResourceIntelligence:Reset()
+    ResourceIntelligence:SetMaximumReports(2)
+    local _, first = ResourceIntelligence:Scan()
+    ResourceIntelligence:Scan()
+    ResourceIntelligence:Scan()
+    equal(#ResourceIntelligence:GetHistory(), 2)
+    expect(ResourceIntelligence:GetReport(first.Id) == nil)
+    ResourceIntelligence:Reset()
+end)
+
+test("Resource Intelligence returns detached report copies", function()
+    ResourceIntelligence:Reset()
+    local _, report = ResourceIntelligence:Scan()
+    report.Health = "FORGED"
+    local latest = ResourceIntelligence:GetLatest()
+    expect(latest.Health ~= "FORGED")
+end)
+
+test("Resource Intelligence filters findings by severity", function()
+    ResourceIntelligence:Reset()
+    ResourceIntelligence:SetThresholds({ LargeAllocationBytes = 1 })
+    MemoryManager:Reset()
+    MemoryManager:Allocate("ri-filter", 10, { Owner = "AuditTest" })
+    ResourceIntelligence:Scan()
+    local warnings = ResourceIntelligence:GetFindings("WARNING")
+    for _, finding in ipairs(warnings) do equal(finding.Severity, "WARNING") end
+    ResourceIntelligence:Reset()
+    MemoryManager:Reset()
+end)
+
+test("Resource Intelligence validates thresholds and history limits", function()
+    expect(not pcall(function()
+        ResourceIntelligence:SetThresholds({ LargeAllocationBytes = -1 })
+    end))
+    expect(not pcall(function()
+        ResourceIntelligence:SetThresholds({ LongLivedAllocationSeconds = math.huge })
+    end))
+    expect(not pcall(function() ResourceIntelligence:SetMaximumReports(0) end))
+end)
+
+test("Resource Intelligence can be disabled without changing history", function()
+    ResourceIntelligence:Reset()
+    ResourceIntelligence:Scan()
+    local before = #ResourceIntelligence:GetHistory()
+    ResourceIntelligence:SetEnabled(false)
+    local ok = ResourceIntelligence:Scan()
+    expect(not ok)
+    equal(#ResourceIntelligence:GetHistory(), before)
+    ResourceIntelligence:SetEnabled(true)
+end)
+
+test("Resource Intelligence reset clears reports and counters", function()
+    ResourceIntelligence:Scan()
+    expect(ResourceIntelligence:GetStatistics().Scans >= 1)
+    ResourceIntelligence:Reset()
+    equal(#ResourceIntelligence:GetHistory(), 0)
+    equal(ResourceIntelligence:GetStatistics().Scans, 0)
+end)
+
 --------------------------------------------------------
 -- 31. INTEGRATED RUNTIME
 --------------------------------------------------------
