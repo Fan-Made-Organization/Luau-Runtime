@@ -72,6 +72,11 @@ class GuiRenderer:
     def __init__(self, parent: QWidget, event_handler):
         self.parent = parent
         self.event_handler = event_handler
+        self.created = 0
+        self.skipped = 0
+
+    def debug(self, message: str):
+        print(f"[FMO GUI DEBUG] {message}", flush=True)
 
     def render_children(self, parent_widget, children):
         for node in children:
@@ -80,7 +85,10 @@ class GuiRenderer:
     def render_node(self, parent_widget, node):
         props = node.get("properties", {})
         kind = props.get("ClassName", "Frame")
+        node_id = node.get("id", "<sin-id>")
         if props.get("Visible") is False:
+            self.skipped += 1
+            self.debug(f"SKIP id={node_id} class={kind} reason=VisibleFalse")
             return
 
         if kind == "TextButton":
@@ -134,12 +142,19 @@ class GuiRenderer:
             content.resize(*dimensions(props.get("CanvasSize"), (260, 320)))
             widget.setWidget(content)
         else:
+            self.skipped += 1
+            self.debug(f"SKIP id={node_id} class={kind} reason=UnsupportedClass")
             return
 
         parent_size = (max(1, parent_widget.width()), max(1, parent_widget.height()))
         width, height = dimensions(props.get("Size"), (180, 40), parent_size)
         x, y = position(props.get("Position"), parent_size)
         widget.setGeometry(x, y, width, height)
+        self.created += 1
+        self.debug(
+            f"CREATE id={node_id} class={kind} parent={parent_size[0]}x{parent_size[1]} "
+            f"geometry=({x},{y},{width},{height}) children={len(node.get('children', []))}"
+        )
         if kind == "Frame":
             widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.show()
@@ -179,9 +194,34 @@ class SimulatorWindow(QMainWindow):
         self.renderer = GuiRenderer(self.canvas, self.dispatch_event)
 
         root_properties = data.get("properties", {})
-        if root_properties.get("Enabled", True) is not False:
-            self.renderer.render_children(self.canvas, data.get("children", []))
+        children = data.get("children", [])
 
+        counts = {}
+        total = 0
+        def inspect_tree(nodes):
+            nonlocal total
+            for item in nodes if isinstance(nodes, list) else []:
+                item_props = item.get("properties", {})
+                item_class = item_props.get("ClassName", "<sin-clase>")
+                counts[item_class] = counts.get(item_class, 0) + 1
+                total += 1
+                inspect_tree(item.get("children", []))
+
+        inspect_tree(children)
+        self.renderer.debug(
+            f"SNAPSHOT root={root_properties.get('ClassName', '<sin-clase>')} "
+            f"name={root_properties.get('Name', '<sin-nombre>')} "
+            f"nodes={total} classes={counts} enabled={root_properties.get('Enabled', True)}"
+        )
+        if root_properties.get("Enabled", True) is not False:
+            self.renderer.render_children(self.canvas, children)
+        else:
+            self.renderer.debug("ROOT SKIPPED reason=EnabledFalse")
+
+        self.renderer.debug(
+            f"RESULT created={self.renderer.created} skipped={self.renderer.skipped} "
+            f"canvas={self.canvas.width()}x{self.canvas.height()}"
+        )
         self.canvas.update()
         if previous_canvas is not self.canvas:
             previous_canvas.deleteLater()
