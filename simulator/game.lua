@@ -29,6 +29,13 @@ local InstanceManager = require("./instance_manager")
 local GarbageCollector = require("./garbage_collector")
 local ResourceIntelligence = require("./resource_intelligence")
 local ResourceDependencyGraph = require("./resource_dependency_graph")
+local EventProfiler = require("./event_profiler")
+local SchedulerAnalyzer = require("./scheduler_analyzer")
+local RuntimeHealthMonitor = require("./runtime_health_monitor")
+local AdvancedDiagnostics = require("./advanced_diagnostics")
+local BenchmarkEngine = require("./benchmark_engine")
+local StressLab = require("./stress_lab")
+
 
 if type(BuiltinServices) ~= "table" then
     error(
@@ -99,6 +106,12 @@ Game.InstanceManager = InstanceManager
 Game.GarbageCollector = GarbageCollector
 Game.ResourceIntelligence = ResourceIntelligence
 Game.ResourceDependencyGraph = ResourceDependencyGraph
+Game.EventProfiler = EventProfiler
+Game.SchedulerAnalyzer = SchedulerAnalyzer
+Game.RuntimeHealthMonitor = RuntimeHealthMonitor
+Game.AdvancedDiagnostics = AdvancedDiagnostics
+Game.BenchmarkEngine = BenchmarkEngine
+Game.StressLab = StressLab
 
 -- Servicios especiales
 Game.ScriptService = BuiltinServices.ScriptService
@@ -146,6 +159,13 @@ end)
 RuntimeStatistics:RegisterProvider("ResourceDependencyGraph", function()
     return ResourceDependencyGraph:GetStatistics()
 end)
+
+RuntimeStatistics:RegisterProvider("EventProfiler", function() return EventProfiler:GetStatistics() end)
+RuntimeStatistics:RegisterProvider("SchedulerAnalyzer", function() return SchedulerAnalyzer:GetStatistics() end)
+RuntimeStatistics:RegisterProvider("RuntimeHealthMonitor", function() return RuntimeHealthMonitor:GetStatistics() end)
+RuntimeStatistics:RegisterProvider("AdvancedDiagnostics", function() return AdvancedDiagnostics:GetStatistics() end)
+RuntimeStatistics:RegisterProvider("BenchmarkEngine", function() return BenchmarkEngine:GetStatistics() end)
+RuntimeStatistics:RegisterProvider("StressLab", function() return StressLab:GetStatistics() end)
 
 RuntimeStatistics:RegisterProvider("EventManager", function()
     return EventManager:GetStatistics()
@@ -334,6 +354,28 @@ end
 
 function Game:GetResourceDependencyImpact(resourceId)
     return ResourceDependencyGraph:GetImpact(resourceId)
+end
+
+-- Event profiling and scheduler analysis.
+function Game:ProfileEvent(name, callback, ...)
+    return EventProfiler:Measure(name, callback, ...)
+end
+
+function Game:CaptureSchedulerMetrics()
+    return SchedulerAnalyzer:Capture(Scheduler, TaskQueue)
+end
+
+-- Explicit health scan; no background polling or automatic cleanup.
+function Game:ScanRuntimeHealth()
+    return RuntimeHealthMonitor:Scan(self)
+end
+
+function Game:RunBenchmark(name, callback, iterations, ...)
+    return BenchmarkEngine:Run(name, callback, iterations, ...)
+end
+
+function Game:RunStressScenario(name, callback, iterations, ...)
+    return StressLab:Run(name, callback, iterations, ...)
 end
 
 -- Instance Manager
