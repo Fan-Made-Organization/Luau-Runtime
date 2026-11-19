@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPalette, QFont
 from PySide6.QtWidgets import (
     QApplication, QFrame, QLabel, QLineEdit, QMainWindow, QPushButton,
     QScrollArea, QStatusBar, QWidget,
@@ -68,6 +68,22 @@ def bridge_require_path(script: Path) -> str:
     return value
 
 
+def label_alignment(horizontal, vertical):
+    horizontal_flags = {
+        "left": Qt.AlignmentFlag.AlignLeft,
+        "center": Qt.AlignmentFlag.AlignHCenter,
+        "right": Qt.AlignmentFlag.AlignRight,
+    }
+    vertical_flags = {
+        "top": Qt.AlignmentFlag.AlignTop,
+        "center": Qt.AlignmentFlag.AlignVCenter,
+        "bottom": Qt.AlignmentFlag.AlignBottom,
+    }
+    h = horizontal_flags.get(str(horizontal or "left").lower(), Qt.AlignmentFlag.AlignLeft)
+    v = vertical_flags.get(str(vertical or "center").lower(), Qt.AlignmentFlag.AlignVCenter)
+    return h | v
+
+
 class GuiRenderer:
     def __init__(self, parent: QWidget, event_handler):
         self.parent = parent
@@ -123,11 +139,24 @@ class GuiRenderer:
                     self.event_handler(target, "text", field.text())
                 )
         elif kind == "TextLabel":
-            widget = QLabel(str(props.get("Text", "Label")), parent_widget)
+            text = str(props.get("Text", "Label"))
+            text_color = color(props.get("TextColor3"), "#f0f0f5")
+            widget = QLabel(text, parent_widget)
+            widget.setTextFormat(Qt.TextFormat.PlainText)
             widget.setWordWrap(True)
+            widget.setAlignment(label_alignment(
+                props.get("TextXAlignment", "Left"),
+                props.get("TextYAlignment", "Center"),
+            ))
+            font = QFont(widget.font())
+            font.setPointSize(max(1, int(number(props.get("TextSize", 14), 14))))
+            widget.setFont(font)
+            palette = widget.palette()
+            palette.setColor(QPalette.ColorRole.WindowText, text_color)
+            widget.setPalette(palette)
+            widget.setAutoFillBackground(False)
             widget.setStyleSheet(
-                f"color:{color(props.get('TextColor3'), '#f0f0f5').name()};"
-                " background:transparent;"
+                f"QLabel {{ color:{text_color.name()}; background:transparent; }}"
             )
         elif kind == "Frame":
             widget = QFrame(parent_widget)
@@ -155,6 +184,12 @@ class GuiRenderer:
             f"CREATE id={node_id} class={kind} parent={parent_size[0]}x{parent_size[1]} "
             f"geometry=({x},{y},{width},{height}) children={len(node.get('children', []))}"
         )
+        if kind == "TextLabel":
+            self.debug(
+                f"LABEL id={node_id} text={widget.text()!r} "
+                f"color={widget.palette().color(QPalette.ColorRole.WindowText).name()} "
+                f"font={widget.font().pointSize()}pt size={widget.size().width()}x{widget.size().height()}"
+            )
         if kind == "Frame":
             widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.show()
@@ -162,6 +197,9 @@ class GuiRenderer:
 
         child_parent = widget.widget() if kind == "ScrollingFrame" else widget
         self.render_children(child_parent, node.get("children", []))
+
+    def debug(self, message: str):
+        print(f"[FMO GUI DEBUG] {message}", flush=True)
 
 
 class SimulatorWindow(QMainWindow):
@@ -181,9 +219,6 @@ class SimulatorWindow(QMainWindow):
         self.refresh(data)
 
     def refresh(self, data: dict):
-        # Replace the complete render surface instead of detaching individual
-        # descendants. This prevents stale parent widgets from covering the
-        # refreshed tree after a Luau callback.
         previous_canvas = self.canvas
         self.canvas = QWidget()
         self.canvas.setObjectName("FmoGuiCanvas")
