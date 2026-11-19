@@ -16,6 +16,10 @@ local PROPERTY_ALLOWLIST = {
     "Scale", "FillDirection", "HorizontalAlignment", "VerticalAlignment",
     "SortOrder", "Padding", "CellSize", "CellPadding", "StartCorner",
     "ScrollBarThickness", "Offset",
+    "Active", "Interactable", "TextWrapped", "TextScaled", "TextTransparency",
+    "TextStrokeColor3", "TextStrokeTransparency", "ClipsDescendants",
+    "CanvasPosition", "ScrollBarImageColor3", "ScrollBarImageTransparency",
+    "ClearTextOnFocus", "MultiLine", "TextEditable", "MaxVisibleGraphemes",
 }
 
 local function safeValue(value, depth)
