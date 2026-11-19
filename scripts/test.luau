@@ -1674,6 +1674,11 @@ test("Integrated runtime step", function()
     expect(result.Scheduler ~= nil)
     expect(result.Physics ~= nil)
     expect(result.Collisions ~= nil)
+
+    expect(Profiler:GetProfile("Game.Step") ~= nil)
+    expect(Profiler:GetProfile("Scheduler.Step") ~= nil)
+    expect(Profiler:GetProfile("Physics.Step") ~= nil)
+    expect(Profiler:GetProfile("Collision.Step") ~= nil)
 end)
 
 test("Frame statistics", function()
