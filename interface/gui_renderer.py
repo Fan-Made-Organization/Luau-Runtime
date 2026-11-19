@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QRect, QSize
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QIcon, QLinearGradient, QBrush, QPen
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QIcon, QPen, QPainterPath
 from PySide6.QtWidgets import (
-    QWidget, QFrame, QPushButton, QLineEdit, QScrollArea, QLabel,
+    QWidget, QFrame, QPushButton, QLineEdit, QScrollArea,
 )
 
 
@@ -125,7 +125,7 @@ def _widget_style(props, children, fallback):
 
 
 class FmoTextLabel(QWidget):
-    def __init__(self, props, parent=None):
+    def __init__(self, props, children=None, parent=None):
         super().__init__(parent)
         self.text = str(props.get("Text", "Label"))
         self.text_color = qcolor(props.get("TextColor3"), "#f0f0f5")
@@ -133,7 +133,8 @@ class FmoTextLabel(QWidget):
         self.font.setPointSize(max(1, int(number(props.get("TextSize", 14)))))
         self.font.setBold("bold" in str(props.get("Font", "")).lower())
         self.alignment = self._alignment(props)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setStyleSheet(_widget_style(props, children or [], "#252936"))
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
     @staticmethod
     def _alignment(props):
@@ -159,18 +160,28 @@ class FmoTextLabel(QWidget):
 
 
 class FmoImageLabel(QWidget):
-    def __init__(self, props, parent=None):
+    def __init__(self, props, children=None, parent=None):
         super().__init__(parent)
         self.path = str(props.get("Image", ""))
         self.tint = qcolor(props.get("ImageColor3"), "#ffffff")
         self.transparency = max(0.0, min(1.0, number(props.get("ImageTransparency", 0))))
         self.scale_type = str(props.get("ScaleType", "Fit")).lower()
         self.pixmap = QPixmap(self.path) if self.path and Path(self.path).is_file() else QPixmap()
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setStyleSheet(_widget_style(props, children or [], "#252936"))
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        radius = max(0, udim(
+            next((child.get("properties", {}).get("CornerRadius")
+                  for child in getattr(self, "_fmo_children", [])
+                  if _child_class(child) == "UICorner"), None),
+            100, 0
+        ))
+        clip = QPainterPath()
+        clip.addRoundedRect(self.rect(), radius, radius)
+        painter.setClipPath(clip)
         if self.pixmap.isNull():
             painter.setPen(QPen(QColor("#8993a8"), 1, Qt.PenStyle.DashLine))
             painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 5, 5)
@@ -251,7 +262,6 @@ class GuiRenderer:
         return result
 
     def render_children(self, parent_widget, children):
-        modifiers = _style_modifiers(children)
         layout_node = next((child for child in children if _child_class(child) in {"UIListLayout", "UIGridLayout"}), None)
         layout = self._layout_geometry(parent_widget, children, layout_node)
         ordered = sorted(
@@ -287,9 +297,10 @@ class GuiRenderer:
             widget = QLineEdit(str(props.get("Text", "")), parent_widget)
             widget.setPlaceholderText(str(props.get("PlaceholderText", "")))
         elif kind == "TextLabel":
-            widget = FmoTextLabel(props, parent_widget)
+            widget = FmoTextLabel(props, children, parent_widget)
         elif kind == "ImageLabel":
-            widget = FmoImageLabel(props, parent_widget)
+            widget = FmoImageLabel(props, children, parent_widget)
+            widget._fmo_children = children
         elif kind == "ScrollingFrame":
             widget = QScrollArea(parent_widget)
             widget.setWidgetResizable(False)
@@ -354,9 +365,6 @@ class GuiRenderer:
                                                self.event_handler(ident, "text", field.text()))
         elif kind in {"Frame", "ScrollingFrame"}:
             widget.setStyleSheet(f"{_widget_style(props, children, '#252936')}")
-        elif kind == "ImageLabel":
-            pass
-
         parent_size = (max(1, parent_widget.width()), max(1, parent_widget.height()))
         if override_geometry:
             x, y, width, height = override_geometry
