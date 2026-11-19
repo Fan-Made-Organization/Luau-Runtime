@@ -117,6 +117,9 @@ function SignalMethods:DisconnectAll()
     for _, connection in ipairs(self._connections) do
         connection.Connected = false
         connection._signal = nil
+        -- Release closures immediately so disconnected connections cannot
+        -- keep entire object graphs alive through captured upvalues.
+        connection._callback = nil
     end
 
     self._connections = {}
