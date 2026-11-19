@@ -4,7 +4,7 @@ from config import SCRIPTS_DIR
 
 def main():
     print("=" * 40)
-    print("       FMO LUAU RUNTIME")
+    print("       LUAU RUNTIME")
     print("          UPDATE 1.3")
     print("=" * 40)
 
