@@ -24,9 +24,9 @@ UPDATE 2.0 introduces seven new modules exposed through the shared `Game` object
 | `TaskQueue` | Deferred and delayed callbacks, priority ordering, cancellation, queue limits, pause/resume, bounded history and execution budgets. |
 | `InstanceManager` | Indexed Instance lookup by name/class, tags, groups, metadata, index refresh/rebuild, validation and lifecycle tracking. |
 
-The `Game` facade exposes common entry points, and runtime statistics now include providers for the new managers. The regression suite has been expanded to **280 checks** covering normal behavior, invalid inputs, cleanup, limits, callback errors and edge cases.
+The `Game` facade exposes common entry points, and runtime statistics now include providers for the new managers. The original UPDATE 2.0 expansion introduced the first seven management systems. The current integrated regression suite has since grown to 370 declared checks across the runtime.
 
-**Verification status:** source changes and regression cases have been added to the `Runtime` branch. The new 282-check suite has not yet been executed in this development session; run the commands below and inspect the final report before treating UPDATE 2.0 as passing.
+**Verification status:** UPDATE 2.0 is a historical milestone. For the current branch, use the latest GitHub Actions result and the final local Super Test report as the source of truth.
 
 ## Previous development — UPDATE 1.2
 
