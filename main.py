@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from engine.interpreter import LuauInterpreter
 from config import SCRIPTS_DIR
 
@@ -11,7 +9,6 @@ def main():
     print("=" * 40)
 
     interpreter = LuauInterpreter()
-
     script = SCRIPTS_DIR / "test.luau"
 
     print("\n[Runtime] Initializing...")
@@ -21,12 +18,19 @@ def main():
 
     if result["success"]:
         print("\n[Runtime] Script output:")
-        print(result["output"])
+        print(result["output"], end="" if result["output"].endswith("\n") else "\n")
         print("[Runtime] Execution completed.")
-    else:
-        print("\n[Runtime] Execution failed:")
-        print(result["error"])
+        return 0
+
+    print("\n[Runtime] Execution failed:")
+    print(result["error"])
+
+    if result.get("output"):
+        print("\n[Runtime] Output before failure:")
+        print(result["output"])
+
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -2,16 +2,26 @@ name: FMO Luau Runtime CI
 
 on:
   push:
-    branches: [Runtime]
+    branches: [Runtime, "hardening/**"]
   pull_request:
     branches: [Runtime]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fmo-luau-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   super-test:
-    name: Build official Luau and run Super Test
+    name: Build Luau and run regression suite
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - name: Checkout FMO Luau Runtime
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -20,13 +30,20 @@ jobs:
           python-version: "3.x"
 
       - name: Validate Python sources
-        run: python -m compileall -q config.py main.py engine
+        run: python -m compileall -q .
 
       - name: Build official Luau CLI
+        shell: bash
         run: |
+          set -euo pipefail
           git clone --depth 1 https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
           cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau/build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/luau/build" --target Luau.Repl.CLI --parallel 2
+          test -x "$RUNNER_TEMP/luau/build/luau"
+          "$RUNNER_TEMP/luau/build/luau" --version
 
       - name: Run FMO Super Test 1.2
-        run: "$RUNNER_TEMP/luau/build/luau" scripts/test.luau
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/luau/build/luau" scripts/test.luau

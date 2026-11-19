@@ -75,8 +75,9 @@ end
 local function createCircularError(moduleScript)
     local chain = {}
 
-    for _, name in ipairs(ModuleLoader._loadStack) do
-        table.insert(chain, name)
+    for _, entry in ipairs(ModuleLoader._loadStack) do
+        local name = type(entry) == "table" and entry.Name or entry
+        table.insert(chain, tostring(name))
     end
 
     table.insert(chain, getModuleName(moduleScript))
@@ -213,7 +214,16 @@ function ModuleLoader:Unload(moduleScript)
 end
 
 function ModuleLoader:ClearCache()
+    local removed = 0
+
+    for _ in pairs(self._cache) do
+        removed = removed + 1
+    end
+
     self._cache = {}
+    self._stats.Unloads = self._stats.Unloads + removed
+
+    return removed
 end
 
 function ModuleLoader:GetLoadedModules()

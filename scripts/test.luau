@@ -1616,12 +1616,25 @@ else
     print("       SOME TESTS NEED ATTENTION.")
 end
 
-print("       FMO LUAU RUNTIME - SUPER TEST 1.1")
+print("       FMO LUAU RUNTIME - SUPER TEST 1.2")
 line()
 
 print("")
 print("[Runtime] Super Test completed.")
 print("[Runtime] Test execution finished.")
+
+-- Return values are useful to callers, but the CLI also needs a failing
+-- process exit code so CI cannot report a false positive.
+if failedTests > 0 then
+    error(
+        string.format(
+            "FMO Super Test failed: %d of %d tests failed",
+            failedTests,
+            totalTests
+        ),
+        0
+    )
+end
 
 return {
     Total = totalTests,
