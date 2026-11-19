@@ -349,6 +349,33 @@ test("UIGridLayout exposes cell geometry", function()
     layout:Destroy()
 end)
 
+test("GUI bridge serializes image and layout components", function()
+    local Bridge = require("../simulator/gui_bridge")
+    local root = Instance.new("ScreenGui")
+    local image = Instance.new("ImageButton")
+    image.Parent = root
+    local layout = Instance.new("UIGridLayout")
+    layout.Parent = root
+    local snapshot = Game:GetService("HttpService"):JSONDecode(Bridge.Snapshot(root))
+    equal(snapshot.children[1].properties.ClassName, "ImageButton")
+    equal(snapshot.children[2].properties.ClassName, "UIGridLayout")
+    equal(snapshot.children[2].properties.CellSize[2], 100)
+    root:Destroy()
+end)
+
+test("GUI bridge dispatches ImageButton Activated callbacks", function()
+    local Bridge = require("../simulator/gui_bridge")
+    local root = Instance.new("ScreenGui")
+    local button = Instance.new("ImageButton")
+    button.Parent = root
+    local activations = 0
+    button.Activated:Connect(function() activations += 1 end)
+    Bridge.Snapshot(root)
+    Bridge.Dispatch("0/1", "click")
+    equal(activations, 1)
+    root:Destroy()
+end)
+
 test("Instance attributes", function()
     testPart:SetAttribute("FMOTest", true)
 
