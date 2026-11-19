@@ -33,11 +33,19 @@ local inheritance = {
         LuaSourceContainer = true,
     },
     TextButton = { GuiButton = true, GuiObject = true },
+    ImageButton = { GuiButton = true, GuiObject = true },
     TextLabel = { GuiObject = true },
+    ImageLabel = { GuiObject = true },
     TextBox = { GuiButton = true, GuiObject = true },
     Frame = { GuiObject = true },
     ScrollingFrame = { Frame = true, GuiObject = true },
     ScreenGui = { LayerCollector = true },
+    UIListLayout = { UIComponent = true },
+    UIGridLayout = { UIComponent = true },
+    UICorner = { UIComponent = true },
+    UIStroke = { UIComponent = true },
+    UIGradient = { UIComponent = true },
+    UIScale = { UIComponent = true },
 }
 
 -- ==========================================
@@ -87,7 +95,15 @@ local classDefaults = {
     TextLabel = { Name = "TextLabel", Text = "Label", Visible = true, BackgroundTransparency = 1, TextColor3 = {240,240,245}, TextSize = 14, Size = {0,160,0,28}, Position = {0,0,0,0} },
     TextButton = { Name = "TextButton", Text = "Button", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {70,100,180}, TextColor3 = {255,255,255}, TextSize = 14, Size = {0,140,0,36}, Position = {0,0,0,0} },
     TextBox = { Name = "TextBox", Text = "", PlaceholderText = "Enter text...", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {48,52,64}, TextColor3 = {255,255,255}, TextSize = 14, Size = {0,180,0,34}, Position = {0,0,0,0} },
-    ScrollingFrame = { Name = "ScrollingFrame", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {30,33,42}, Size = {0,220,0,160}, Position = {0,0,0,0}, CanvasSize = {0,0,0,0} },
+    ScrollingFrame = { Name = "ScrollingFrame", Visible = true, BackgroundTransparency = 0, BackgroundColor3 = {30,33,42}, Size = {0,220,0,160}, Position = {0,0,0,0}, CanvasSize = {0,0,0,0}, ScrollingDirection = "XY", AutomaticCanvasSize = "None", ScrollBarThickness = 8 },
+    ImageLabel = { Name = "ImageLabel", Visible = true, BackgroundTransparency = 1, Image = "", ImageColor3 = {255,255,255}, ImageTransparency = 0, ScaleType = "Fit", Size = {0,160,0,120}, Position = {0,0,0,0} },
+    ImageButton = { Name = "ImageButton", Visible = true, BackgroundTransparency = 1, Image = "", ImageColor3 = {255,255,255}, ImageTransparency = 0, ScaleType = "Fit", Size = {0,120,0,80}, Position = {0,0,0,0}, AutoButtonColor = true },
+    UICorner = { Name = "UICorner", CornerRadius = {0,8} },
+    UIStroke = { Name = "UIStroke", Color = {110,125,155}, Thickness = 1, Transparency = 0, Enabled = true, ApplyStrokeMode = "Border" },
+    UIGradient = { Name = "UIGradient", Color = {{255,255,255},{180,195,235}}, Rotation = 0, Enabled = true, Offset = {0,0} },
+    UIScale = { Name = "UIScale", Scale = 1 },
+    UIListLayout = { Name = "UIListLayout", FillDirection = "Vertical", HorizontalAlignment = "Left", VerticalAlignment = "Top", SortOrder = "LayoutOrder", Padding = {0,6} },
+    UIGridLayout = { Name = "UIGridLayout", FillDirection = "Horizontal", HorizontalAlignment = "Left", VerticalAlignment = "Top", SortOrder = "LayoutOrder", CellSize = {0,100,0,80}, CellPadding = {0,8,0,8}, StartCorner = "TopLeft" },
 }
 
 -- ==========================================
@@ -316,7 +332,7 @@ function Instance.new(className)
         Changed = Signal.new(),
     }
 
-    if className == "TextButton" then
+    if className == "TextButton" or className == "ImageButton" then
         object._guiSignals.MouseButton1Click = Signal.new()
         object._guiSignals.Activated = Signal.new()
     elseif className == "TextBox" then
